@@ -90,7 +90,6 @@ noinst_HEADERS = \
 	include/auto/logoschism.h	\
 	include/auto/schismico.h	\
 	include/charset.h		\
-	include/clippy.h		\
 	include/cmixer.h		\
 	include/config-parser.h		\
 	include/disko.h			\
@@ -265,7 +264,6 @@ schismtracker_SOURCES = \
 	schism/disko.c			\
 	schism/page_loadinst.c		\
 	schism/mplink.c			\
-	schism/clippy.c			\
 	schism/page_loadmodule.c	\
 	schism/page_vars.c		\
 	schism/palettes.c		\
@@ -311,9 +309,7 @@ schismtracker_SOURCES = \
 	schism/widget-keyhandler.c	\
 	schism/main.c			\
 	schism/page_midiout.c		\
-	schism/page_message.c		\
 	schism/page_loadsample.c	\
-	schism/dialog.c			\
 	schism/page_preferences.c	\
 	schism/widget.c			\
 	schism/config.c			\

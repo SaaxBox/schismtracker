@@ -250,8 +250,9 @@ static void do_save_song(char *ptr)
 		ret = song_save(filename, seltype);
 	}
 
-	if (ret != SAVE_SUCCESS)
-		dialog_create(DIALOG_OK, "Could not save file", NULL, NULL, 0, NULL);
+	if (ret != SAVE_SUCCESS) {
+//		dialog_create(DIALOG_OK, "Could not save file", NULL, NULL, 0, NULL);
+	}
 
 	free(ptr);
 }
@@ -303,11 +304,11 @@ static void handle_file_entered_S(const char *name)
 			/* TODO: maybe change the current directory in this case? */
 			log_appendf(4, "%s: Is a directory", name);
 		} else if (S_ISREG(buf.st_mode)) {
-			dialog_create(DIALOG_OK_CANCEL, "Overwrite file?",
-				      do_save_song_overwrite, free, 1, str_dup(name));
+//			dialog_create(DIALOG_OK_CANCEL, "Overwrite file?",
+//				      do_save_song_overwrite, free, 1, str_dup(name));
 		} else {
 			/* log_appendf(4, "%s: Not overwriting non-regular file", ptr); */
-			dialog_create(DIALOG_OK, "Not a regular file", NULL, NULL, 0, NULL);
+//			dialog_create(DIALOG_OK, "Not a regular file", NULL, NULL, 0, NULL);
 		}
 	}
 }
@@ -715,7 +716,7 @@ static int file_list_handle_key(struct key_event * k)
 		if (k->state == KEY_RELEASE)
 		    return 1;
 		if (flist.num_files > 0)
-			dialog_create(DIALOG_OK_CANCEL, "Delete file?", do_delete_file, NULL, 1, NULL);
+//			dialog_create(DIALOG_OK_CANCEL, "Delete file?", do_delete_file, NULL, 1, NULL);
 		return 1;
 	case SDLK_BACKSPACE:
 		if (k->state == KEY_RELEASE)
@@ -1054,8 +1055,9 @@ static void save_module_set_page(void)
 		? widgets_exportmodule
 		: widgets_savemodule;
 
-	if (status.current_page == PAGE_EXPORT_MODULE && current_song->orderlist[0] == ORDER_LAST)
-		dialog_create(DIALOG_OK, "You're about to export a blank file...", NULL, NULL, 0, NULL);
+	if (status.current_page == PAGE_EXPORT_MODULE && current_song->orderlist[0] == ORDER_LAST) {
+//		dialog_create(DIALOG_OK, "You're about to export a blank file...", NULL, NULL, 0, NULL);
+	}
 }
 
 void save_module_load_page(struct page *page, int do_export)
