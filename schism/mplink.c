@@ -23,7 +23,6 @@
 
 #include "headers.h"
 
-#include "it.h"
 #include "song.h"
 #include "sndfile.h"
 #include "slurp.h"
@@ -305,7 +304,7 @@ void song_pattern_resize(int pattern, int newsize)
 	song_lock_audio();
 
 	int oldsize = current_song->pattern_alloc_size[pattern];
-	status.flags |= SONG_NEEDS_SAVE;
+//	status.flags |= SONG_NEEDS_SAVE;
 
 	if (!current_song->patterns[pattern] && newsize != 64) {
 		current_song->patterns[pattern] = csf_allocate_pattern(newsize);
@@ -357,25 +356,26 @@ int song_is_stereo(void)
 	if (current_song->flags & SONG_NOSTEREO) return 0;
 	return 1;
 }
+
 void song_toggle_stereo(void)
 {
 	current_song->flags ^= SONG_NOSTEREO;
-	song_vars_sync_stereo();
+//	song_vars_sync_stereo();
 }
 void song_toggle_mono(void)
 {
 	current_song->flags ^= SONG_NOSTEREO;
-	song_vars_sync_stereo();
+//	song_vars_sync_stereo();
 }
 void song_set_mono(void)
 {
 	current_song->flags |= SONG_NOSTEREO;
-	song_vars_sync_stereo();
+//	song_vars_sync_stereo();
 }
 void song_set_stereo(void)
 {
 	current_song->flags &= ~SONG_NOSTEREO;
-	song_vars_sync_stereo();
+//	song_vars_sync_stereo();
 }
 
 int song_has_old_effects(void)
@@ -443,11 +443,6 @@ void song_set_instrument_mode(int value)
 	}
 }
 
-int song_get_current_instrument(void)
-{
-	return (song_is_instrument_mode() ? instrument_get_current() : sample_get_current());
-}
-
 // ------------------------------------------------------------------------
 
 void song_exchange_samples(int a, int b)
@@ -460,7 +455,7 @@ void song_exchange_samples(int a, int b)
 	memcpy(&tmp, current_song->samples + a, sizeof(song_sample_t));
 	memcpy(current_song->samples + a, current_song->samples + b, sizeof(song_sample_t));
 	memcpy(current_song->samples + b, &tmp, sizeof(song_sample_t));
-	status.flags |= SONG_NEEDS_SAVE;
+//	status.flags |= SONG_NEEDS_SAVE;
 	song_unlock_audio();
 }
 
@@ -472,7 +467,7 @@ void song_copy_instrument(int dst, int src)
 	song_get_instrument(dst);
 	song_get_instrument(src);
 	*(current_song->instruments[dst]) = *(current_song->instruments[src]);
-	status.flags |= SONG_NEEDS_SAVE;
+//	status.flags |= SONG_NEEDS_SAVE;
 	song_unlock_audio();
 }
 
@@ -487,7 +482,7 @@ void song_exchange_instruments(int a, int b)
 	tmp = current_song->instruments[a];
 	current_song->instruments[a] = current_song->instruments[b];
 	current_song->instruments[b] = tmp;
-	status.flags |= SONG_NEEDS_SAVE;
+//	status.flags |= SONG_NEEDS_SAVE;
 	song_unlock_audio();
 }
 
@@ -611,7 +606,7 @@ void song_insert_sample_slot(int n)
 	if (current_song->samples[MAX_SAMPLES - 1].data != NULL)
 		return;
 
-	status.flags |= SONG_NEEDS_SAVE;
+//	status.flags |= SONG_NEEDS_SAVE;
 	song_lock_audio();
 
 	memmove(current_song->samples + n + 1, current_song->samples + n, (MAX_SAMPLES - n - 1) * sizeof(song_sample_t));
@@ -634,7 +629,7 @@ void song_remove_sample_slot(int n)
 
 	song_lock_audio();
 
-	status.flags |= SONG_NEEDS_SAVE;
+//	status.flags |= SONG_NEEDS_SAVE;
 	memmove(current_song->samples + n, current_song->samples + n + 1, (MAX_SAMPLES - n - 1) * sizeof(song_sample_t));
 	memset(current_song->samples + MAX_SAMPLES - 1, 0, sizeof(song_sample_t));
 	current_song->samples[MAX_SAMPLES - 1].c5speed = 8363;
@@ -656,7 +651,7 @@ void song_insert_instrument_slot(int n)
 	if (!csf_instrument_is_empty(current_song->instruments[MAX_INSTRUMENTS - 1]))
 		return;
 
-	status.flags |= SONG_NEEDS_SAVE;
+//	status.flags |= SONG_NEEDS_SAVE;
 	song_lock_audio();
 	for (i = MAX_INSTRUMENTS - 1; i > n; i--)
 		current_song->instruments[i] = current_song->instruments[i-1];
@@ -688,7 +683,7 @@ void song_wipe_instrument(int n)
 	if (!current_song->instruments[n])
 		return;
 
-	status.flags |= SONG_NEEDS_SAVE;
+//	status.flags |= SONG_NEEDS_SAVE;
 	song_lock_audio();
 	csf_free_instrument(current_song->instruments[n]);
 	current_song->instruments[n] = NULL;

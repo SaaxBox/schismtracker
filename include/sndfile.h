@@ -14,8 +14,6 @@
 #define NEED_BYTESWAP
 #include "headers.h"
 
-#include "disko.h"
-
 #include "tables.h"
 
 
@@ -590,7 +588,7 @@ typedef struct song {
 	// Current session data is added at save time, and is NOT a part of histdata.
 	int histlen; // How many session history data entries exist (each entry is eight bytes)
 	uint8_t *histdata; // Preserved entries from prior sessions, might be NULL if histlen = 0
-	struct timeval editstart; // When the song was loaded
+//	struct timeval editstart; // When the song was loaded
 
 	// mixer stuff
 	uint32_t mix_flags; // SNDMIX_*
@@ -617,7 +615,6 @@ void csf_init_instrument(song_instrument_t *ins, int samp);
 void csf_free_instrument(song_instrument_t *p);
 
 uint32_t csf_read_sample(song_sample_t *sample, uint32_t flags, const void *filedata, uint32_t datalength);
-uint32_t csf_write_sample(disko_t *fp, song_sample_t *sample, uint32_t flags, uint32_t maxlengthmask);
 void csf_adjust_sample_loop(song_sample_t *sample);
 
 extern void (*csf_midi_out_note)(int chan, const song_note_t *m);
