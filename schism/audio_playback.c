@@ -24,7 +24,7 @@
 #include "headers.h"
 
 #include "it.h"
-#include "page.h"
+//#include "page.h"
 #include "cmixer.h"
 #include "sndfile.h"
 #include "song.h"
@@ -102,10 +102,10 @@ static char cfg_audio_driver[256];
 // playback
 
 extern int midi_bend_hit[64], midi_last_bend_hit[64];
-extern void vis_work_16s(short *in, int inlen);
-extern void vis_work_16m(short *in, int inlen);
-extern void vis_work_8s(char *in, int inlen);
-extern void vis_work_8m(char *in, int inlen);
+//extern void vis_work_16s(short *in, int inlen);
+//extern void vis_work_16m(short *in, int inlen);
+//extern void vis_work_8s(char *in, int inlen);
+//extern void vis_work_8m(char *in, int inlen);
 
 // this gets called from sdl
 static void audio_callback(UNUSED void *qq, uint8_t * stream, int len)
@@ -115,9 +115,9 @@ static void audio_callback(UNUSED void *qq, uint8_t * stream, int len)
 	int i, n;
 
 	if (!stream || !len || !current_song) {
-		if (status.current_page == PAGE_WATERFALL || status.vis_style == VIS_FFT) {
-			vis_work_8m(NULL, 0);
-		}
+//		if (status.current_page == PAGE_WATERFALL || status.vis_style == VIS_FFT) {
+//			vis_work_8m(NULL, 0);
+//		}
 		song_stop_unlocked(0);
 		goto POST_EVENT;
 	}
@@ -133,10 +133,10 @@ static void audio_callback(UNUSED void *qq, uint8_t * stream, int len)
 	} else {
 		n = csf_read(current_song, stream, len);
 		if (!n) {
-			if (status.current_page == PAGE_WATERFALL
-			|| status.vis_style == VIS_FFT) {
-				vis_work_8m(NULL, 0);
-			}
+//			if (status.current_page == PAGE_WATERFALL
+//			|| status.vis_style == VIS_FFT) {
+//				vis_work_8m(NULL, 0);
+//			}
 			song_stop_unlocked(0);
 			goto POST_EVENT;
 		}
@@ -153,22 +153,23 @@ static void audio_callback(UNUSED void *qq, uint8_t * stream, int len)
 		for (i = 0; i < n; i++) {
 			stream[i] ^= 128;
 		}
-		if (status.current_page == PAGE_WATERFALL
-		|| status.vis_style == VIS_FFT) {
-			if (audio_output_channels == 2) {
-				vis_work_8s((char*)stream, n/2);
-			} else {
-				vis_work_8m((char*)stream, n);
-			}
-		}
-	} else if (status.current_page == PAGE_WATERFALL
-				|| status.vis_style == VIS_FFT) {
-		if (audio_output_channels == 2) {
-			vis_work_16s((short*)stream, n);
-		} else {
-			vis_work_16m((short*)stream, n);
-		}
+//		if (status.current_page == PAGE_WATERFALL
+//		|| status.vis_style == VIS_FFT) {
+//			if (audio_output_channels == 2) {
+//				vis_work_8s((char*)stream, n/2);
+//			} else {
+//				vis_work_8m((char*)stream, n);
+//			}
+//		}
 	}
+//	else if (status.current_page == PAGE_WATERFALL
+//				|| status.vis_style == VIS_FFT) {
+//		if (audio_output_channels == 2) {
+//			vis_work_16s((short*)stream, n);
+//		} else {
+//			vis_work_16m((short*)stream, n);
+//		}
+//	}
 
 	if (current_song->num_voices > max_channels_used)
 		max_channels_used = MIN(current_song->num_voices, max_voices);
@@ -196,14 +197,14 @@ POST_EVENT:
 
 /* this should be in page.c; the audio handling code doesn't need to know what
    a page is, much less be talking to them */
-static void main_song_mode_changed_cb(void)
-{
-	int n;
-	for (n = 0; n < PAGE_MAX; n++) {
-		if (pages[n].song_mode_changed_cb)
-			pages[n].song_mode_changed_cb();
-	}
-}
+//static void main_song_mode_changed_cb(void)
+//{
+//	int n;
+//	for (n = 0; n < PAGE_MAX; n++) {
+//		if (pages[n].song_mode_changed_cb)
+//			pages[n].song_mode_changed_cb();
+//	}
+//}
 
 
 static int current_play_channel = 1;
@@ -498,7 +499,7 @@ void song_start_once(void)
 
 	GM_SendSongStartCode();
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
 }
@@ -512,7 +513,7 @@ void song_start(void)
 
 	GM_SendSongStartCode();
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
 }
@@ -524,7 +525,7 @@ void song_pause(void)
 	if (!(current_song->flags & SONG_PAUSED))
 		current_song->flags ^= SONG_ENDREACHED;
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 }
 
 void song_stop(void)
@@ -532,7 +533,7 @@ void song_stop(void)
 	song_lock_audio();
 	song_stop_unlocked(0);
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 }
 
 /* for midi translation */
@@ -629,7 +630,7 @@ void song_loop_pattern(int pattern, int row)
 	GM_SendSongStartCode();
 
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
 }
@@ -647,7 +648,7 @@ void song_start_at_order(int order, int row)
 	GM_SendSongStartCode();
 	/* TODO: GM_SendSongPositionCode(calculate the number of 1/16 notes) */
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
 }

@@ -123,7 +123,7 @@ static void maybe_init_instruments(void)
 {
 	/* XXX actually, in IT the buttons on this dialog say OK/No for whatever reason */
 	song_set_instrument_mode(1);
-	dialog_create(DIALOG_YES_NO, "Initialise instruments?", init_instruments, NULL, 0, NULL);
+//	dialog_create(DIALOG_YES_NO, "Initialise instruments?", init_instruments, NULL, 0, NULL);
 
 	status.flags |= SONG_NEEDS_SAVE;
 }

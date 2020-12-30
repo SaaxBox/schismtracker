@@ -329,9 +329,9 @@ static void handle_enter_key(void)
 			song_load_instrument(cur, file->path);
 		}
 		if (!song_is_instrument_mode()) {
-			dialog_create(DIALOG_YES_NO,
-				"Enable instrument mode?",
-				do_enable_inst, dont_enable_inst, 0, NULL);
+//			dialog_create(DIALOG_YES_NO,
+//				"Enable instrument mode?",
+//				do_enable_inst, dont_enable_inst, 0, NULL);
 		} else {
 			set_page(PAGE_INSTRUMENT_LIST);
 		}
@@ -421,8 +421,9 @@ static int file_list_handle_key(struct key_event * k)
 		if (k->state == KEY_RELEASE)
 			return 1;
 		slash_search_mode = -1;
-		if (flist.num_files > 0)
-			dialog_create(DIALOG_OK_CANCEL, "Delete file?", do_delete_file, NULL, 1, NULL);
+		if (flist.num_files > 0) {
+//			dialog_create(DIALOG_OK_CANCEL, "Delete file?", do_delete_file, NULL, 1, NULL);
+		}
 		return 1;
 	case SDLK_BACKSPACE:
 		if (slash_search_mode > -1) {

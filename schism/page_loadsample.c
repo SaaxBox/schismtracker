@@ -338,12 +338,6 @@ static void _common_set_page(void)
 	search_pos = -1;
 }
 
-static void load_sample_set_page(void)
-{
-	_library_mode = 0;
-	_common_set_page();
-}
-
 static void library_sample_set_page(void)
 {
 	_library_mode = 1;
@@ -351,47 +345,6 @@ static void library_sample_set_page(void)
 }
 
 /* --------------------------------------------------------------------------------------------------------- */
-
-static void file_list_draw(void)
-{
-	int n, i, pos, fg, bg;
-	char buf[8];
-	dmoz_file_t *file;
-
-	/* there's no need to have if (files) { ... } like in the load-module page,
-	   because there will always be at least "/" in the list */
-	if (top_file < 0) top_file = 0;
-	if (current_file < 0) current_file = 0;
-	for (n = top_file, pos = 13; n < flist.num_files && pos < 48; n++, pos++) {
-		file = flist.files[n];
-
-		if (n == current_file && ACTIVE_PAGE.selected_widget == 0) {
-			fg = 0;
-			bg = 3;
-		} else {
-			fg = get_type_color(file->type);
-			bg = 0;
-		}
-		draw_text(numtostr(3, n+1, buf), 2, pos, 0, 2);
-		draw_text_len(file->title ?: "", 25, 6, pos, fg, bg);
-		draw_char(168, 31, pos, 2, bg);
-		draw_text_len(file->base ?: "", 18, 32, pos, fg, bg);
-		if (file->base && search_pos > -1) {
-			if (strncasecmp(file->base,search_str,search_pos) == 0) {
-				for (i = 0 ; i < search_pos; i++) {
-					if (tolower(file->base[i]) != tolower(search_str[i]))
-						break;
-					draw_char(file->base[i], 32+i, pos, 3,1);
-				}
-			}
-		}
-	}
-
-	/* draw the info for the current file (or directory...) */
-
-	while (pos < 48)
-		draw_char(168, 31, pos++, 2, 0);
-}
 
 /* --------------------------------------------------------------------------------------------------------- */
 /* Nasty mess to load a sample and prompt for stereo convert / create host instrument as necessary. */
@@ -426,8 +379,8 @@ int sample_host_dialog(int newpage)
 
 	if (song_is_instrument_mode()) {
 		int used = sample_is_used_by_instrument(sample_get_current());
-		dialog_create(DIALOG_YES_NO, "Create host instrument?",
-			_create_host_ok, _create_host_cancel, used ? 1 : 0, (void *) (intptr_t) newpage);
+//		dialog_create(DIALOG_YES_NO, "Create host instrument?",
+//			_create_host_ok, _create_host_cancel, used ? 1 : 0, (void *) (intptr_t) newpage);
 		return 1;
 	}
 	if (newpage >= 0)
@@ -442,7 +395,7 @@ static void stereo_cvt_complete_left(void)
 	song_sample_t *smp;
 	smp = song_get_sample(cur);
 	sample_mono_left(smp);
-	dialog_destroy();
+//	dialog_destroy();
 	finish_load(cur);
 }
 
@@ -452,14 +405,14 @@ static void stereo_cvt_complete_right(void)
 	song_sample_t *smp;
 	smp = song_get_sample(cur);
 	sample_mono_right(smp);
-	dialog_destroy();
+//	dialog_destroy();
 	finish_load(cur);
 }
 
 static void stereo_cvt_complete_both(void)
 {
 	memused_songchanged();
-	dialog_destroy();
+//	dialog_destroy();
 	sample_host_dialog(PAGE_SAMPLE_LIST);
 }
 
@@ -518,247 +471,14 @@ static void finish_load(int cur)
 				2, 2, 1, 0, 0,
 				stereo_cvt_complete_right, "Right", 1);
 
-		dd = dialog_create_custom(24, 25, 33, 8,
-				stereo_cvt_widgets, 3,
-				1,
-				stereo_cvt_dialog, NULL);
-		dd->handle_key = stereo_cvt_hk;
+//		dd = dialog_create_custom(24, 25, 33, 8,
+//				stereo_cvt_widgets, 3,
+//				1,
+//				stereo_cvt_dialog, NULL);
+//		dd->handle_key = stereo_cvt_hk;
 		return;
 	}
 	sample_host_dialog(PAGE_SAMPLE_LIST);
-}
-
-static void reposition_at_slash_search(void)
-{
-	dmoz_file_t *f;
-	int i, j, b, bl;
-
-	if (search_pos < 0) return;
-	bl = b = -1;
-	for (i = 0; i < flist.num_files; i++) {
-		f = flist.files[i];
-		if (!f || !f->base) continue;
-		for (j = 0; j < search_pos; j++) {
-			if (tolower(f->base[j]) != tolower(search_str[j]))
-				break;
-		}
-		if (bl < j) {
-			bl = j;
-			b = i;
-		}
-	}
-	if (bl > 0) {
-		current_file = b;
-		file_list_reposition();
-	}
-}
-
-/* on the file list, that is */
-static void handle_enter_key(void)
-{
-	dmoz_file_t *file;
-	song_sample_t *smp;
-	int cur = sample_get_current();
-
-	if (current_file < 0 || current_file >= flist.num_files) return;
-
-	file = flist.files[current_file];
-	dmoz_cache_update(cfg_dir_samples, &flist, NULL);
-	dmoz_fill_ext_data(file);
-
-	if ((file->type & (TYPE_BROWSABLE_MASK|TYPE_INST_MASK))
-	&& !(file->type & TYPE_SAMPLE_MASK)) {
-		change_dir(file->path);
-		status.flags |= NEED_UPDATE;
-	} else if (_library_mode) {
-		return;
-	} else if (file->sample) {
-		/* it's already been loaded, so copy it */
-		smp = song_get_sample(cur);
-		song_copy_sample(cur, file->sample);
-		strncpy(smp->name, file->title, 25);
-		smp->name[25] = 0;
-		strncpy(smp->filename, file->base, 12);
-		smp->filename[12] = 0;
-		finish_load(cur);
-		memused_songchanged();
-	} else if (file->type & TYPE_SAMPLE_MASK) {
-		/* load the sample */
-		song_load_sample(cur, file->path);
-		finish_load(cur);
-		memused_songchanged();
-	}
-}
-
-static void do_discard_changes_and_move(UNUSED void *gn)
-{
-	fake_slot = KEYJAZZ_NOINST;
-	fake_slot_changed = 0;
-	search_pos = -1;
-	current_file = will_move_to;
-	file_list_reposition();
-	status.flags |= NEED_UPDATE;
-}
-
-static void do_delete_file(UNUSED void *data)
-{
-	int old_top_file, old_current_file;
-	char *ptr;
-
-	if (current_file < 0 || current_file >= flist.num_files)
-		return;
-
-	ptr = flist.files[current_file]->path;
-
-	/* would be neat to send it to the trash can if there is one */
-	unlink(ptr);
-
-	/* remember the list positions */
-	old_top_file = top_file;
-	old_current_file = current_file;
-
-	read_directory();
-
-	/* put the list positions back */
-	top_file = old_top_file;
-	current_file = old_current_file;
-	/* edge case: if this was the last file, move the cursor up */
-	if (current_file >= flist.num_files)
-		current_file = flist.num_files - 1;
-	file_list_reposition();
-}
-
-static int file_list_handle_key(struct key_event * k)
-{
-	dmoz_file_t *f;
-	int new_file = current_file;
-	int c = unicode_to_ascii(k->unicode);
-
-	new_file = CLAMP(new_file, 0, flist.num_files - 1);
-
-	if (!(status.flags & CLASSIC_MODE) && k->sym == SDLK_n && (k->mod & KMOD_ALT)) {
-		if (k->state == KEY_RELEASE)
-			song_toggle_multichannel_mode();
-		return 1;
-	}
-
-	if (k->mouse) {
-		if (k->x >= 6 && k->x <= 49 && k->y >= 13 && k->y <= 47) {
-			search_pos = -1;
-			if (k->mouse == MOUSE_SCROLL_UP) {
-				new_file -= MOUSE_SCROLL_LINES;
-			} else if (k->mouse == MOUSE_SCROLL_DOWN) {
-				new_file += MOUSE_SCROLL_LINES;
-			} else {
-				new_file = top_file + (k->y - 13);
-			}
-		}
-	}
-	switch (k->sym) {
-	case SDLK_UP:           new_file--; search_pos = -1; break;
-	case SDLK_DOWN:         new_file++; search_pos = -1; break;
-	case SDLK_PAGEUP:       new_file -= 35; search_pos = -1; break;
-	case SDLK_PAGEDOWN:     new_file += 35; search_pos = -1; break;
-	case SDLK_HOME:         new_file = 0; search_pos = -1; break;
-	case SDLK_END:          new_file = flist.num_files - 1; search_pos = -1; break;
-
-	case SDLK_ESCAPE:
-		if (search_pos < 0) {
-			if (k->state == KEY_RELEASE && NO_MODIFIER(k->mod))
-				set_page(PAGE_SAMPLE_LIST);
-			return 1;
-		} /* else fall through */
-	case SDLK_RETURN:
-		if (search_pos < 0) {
-			if (k->state == KEY_PRESS)
-				return 0;
-			handle_enter_key();
-			search_pos = -1;
-		} else {
-			if (k->state == KEY_PRESS)
-				return 1;
-			search_pos = -1;
-			status.flags |= NEED_UPDATE;
-			return 1;
-		}
-		return 1;
-	case SDLK_DELETE:
-		if (k->state == KEY_RELEASE)
-			return 1;
-		search_pos = -1;
-		if (flist.num_files > 0)
-			dialog_create(DIALOG_OK_CANCEL, "Delete file?", do_delete_file, NULL, 1, NULL);
-		return 1;
-	case SDLK_BACKSPACE:
-		if (search_pos > -1) {
-			if (k->state == KEY_RELEASE)
-				return 1;
-			search_pos--;
-			status.flags |= NEED_UPDATE;
-			reposition_at_slash_search();
-			return 1;
-		}
-	case SDLK_SLASH:
-		if (search_pos < 0) {
-			if (k->orig_sym == SDLK_SLASH) {
-				if (k->state == KEY_PRESS)
-					return 0;
-				search_pos = 0;
-				status.flags |= NEED_UPDATE;
-				return 1;
-			}
-			return 0;
-		} /* else fall through */
-	default:
-		f = flist.files[current_file];
-		if (c >= 32 && (search_pos > -1 || (f && (f->type & TYPE_DIRECTORY)))) {
-			if (k->state == KEY_RELEASE)
-				return 1;
-			if (search_pos < 0) search_pos = 0;
-			if (search_pos < PATH_MAX) {
-				search_str[search_pos++] = c;
-				reposition_at_slash_search();
-				status.flags |= NEED_UPDATE;
-			}
-			return 1;
-		}
-		if (!k->mouse) return 0;
-	}
-
-	if (k->mouse == MOUSE_CLICK) {
-		if (k->state == KEY_PRESS)
-			return 0;
-	} else if (k->mouse == MOUSE_DBLCLICK) {
-		handle_enter_key();
-		return 1;
-	} else {
-		/* prevent moving the cursor twice from a single key press */
-		if (k->state == KEY_RELEASE)
-			return 1;
-	}
-
-	new_file = CLAMP(new_file, 0, flist.num_files - 1);
-	if (new_file != current_file) {
-		if (fake_slot != KEYJAZZ_NOINST && fake_slot_changed) {
-			will_move_to = new_file;
-			dialog_create(DIALOG_YES_NO,
-				"Discard Changes?",
-				do_discard_changes_and_move,
-				NULL,
-				0, NULL);
-			return 1;
-			/* support saving? XXX */
-			/*"Save Sample?" OK Cancel*/
-			/*"Discard Changes?" OK Cancel*/
-		}
-		fake_slot = KEYJAZZ_NOINST;
-		fake_slot_changed = 0;
-		search_pos = -1;
-		current_file = new_file;
-		file_list_reposition();
-		status.flags |= NEED_UPDATE;
-	}
-	return 1;
 }
 
 static void load_sample_handle_key(struct key_event * k)
@@ -810,194 +530,105 @@ static void handle_preload(void)
 	}
 }
 
-static void handle_rename_op(void)
-{
-	handle_preload();
-}
-
-static void handle_load_copy_uint(unsigned int s, unsigned int *d)
-{
-	if (s != *d) {
-		*d = s;
-		fake_slot_changed = 1;
-	}
-}
-
-static void handle_load_copy(song_sample_t *s)
-{
-	handle_load_copy_uint(widgets_loadsample[2].d.numentry.value, &s->c5speed);
-	handle_load_copy_uint(widgets_loadsample[4].d.numentry.value, &s->loop_start);
-	handle_load_copy_uint(widgets_loadsample[5].d.numentry.value, &s->loop_end);
-	handle_load_copy_uint(widgets_loadsample[7].d.numentry.value, &s->sustain_start);
-	handle_load_copy_uint(widgets_loadsample[8].d.numentry.value, &s->sustain_end);
-	handle_load_copy_uint(widgets_loadsample[9].d.thumbbar.value, &s->volume);
-	if ((unsigned int)widgets_loadsample[9].d.thumbbar.value == (s->volume>>2)) {
-		s->volume = (widgets_loadsample[9].d.thumbbar.value << 2);
-		fake_slot_changed=1;
-	}
-	handle_load_copy_uint(widgets_loadsample[10].d.thumbbar.value, &s->global_volume);
-	handle_load_copy_uint(widgets_loadsample[11].d.thumbbar.value, &s->vib_rate);
-	handle_load_copy_uint(widgets_loadsample[12].d.thumbbar.value, &s->vib_depth);
-	handle_load_copy_uint(widgets_loadsample[13].d.thumbbar.value, &s->vib_speed);
-	switch (widgets_loadsample[3].d.menutoggle.state) {
-	case 0:
-		if (s->flags & (CHN_LOOP|CHN_PINGPONGLOOP)) {
-			s->flags &= ~(CHN_LOOP|CHN_PINGPONGLOOP);
-			fake_slot_changed=1;
-		}
-		break;
-	case 1:
-		if ((s->flags & (CHN_LOOP|CHN_PINGPONGLOOP)) == CHN_LOOP) {
-			s->flags &= ~(CHN_LOOP|CHN_PINGPONGLOOP);
-			s->flags |= (CHN_LOOP);
-			fake_slot_changed=1;
-		}
-		break;
-	case 2:
-		if ((s->flags & (CHN_LOOP|CHN_PINGPONGLOOP)) == CHN_PINGPONGLOOP) {
-			s->flags &= ~(CHN_LOOP|CHN_PINGPONGLOOP);
-			s->flags |= (CHN_PINGPONGLOOP);
-			fake_slot_changed=1;
-		}
-		break;
-	};
-	switch (widgets_loadsample[6].d.menutoggle.state) {
-	case 0:
-		if (s->flags & (CHN_SUSTAINLOOP|CHN_PINGPONGSUSTAIN)) {
-			s->flags &= ~(CHN_SUSTAINLOOP|CHN_PINGPONGSUSTAIN);
-			fake_slot_changed=1;
-		}
-		break;
-	case 1:
-		if ((s->flags & (CHN_SUSTAINLOOP|CHN_PINGPONGSUSTAIN)) == CHN_SUSTAINLOOP) {
-			s->flags &= ~(CHN_SUSTAINLOOP|CHN_PINGPONGSUSTAIN);
-			s->flags |= (CHN_SUSTAINLOOP);
-			fake_slot_changed=1;
-		}
-		break;
-	case 2:
-		if ((s->flags & (CHN_SUSTAINLOOP|CHN_PINGPONGSUSTAIN)) == CHN_PINGPONGSUSTAIN) {
-			s->flags &= ~(CHN_SUSTAINLOOP|CHN_PINGPONGSUSTAIN);
-			s->flags |= (CHN_PINGPONGSUSTAIN);
-			fake_slot_changed=1;
-		}
-		break;
-	};
-}
-
-static void handle_load_update(void)
-{
-	song_sample_t *s;
-	handle_preload();
-	if (fake_slot != KEYJAZZ_NOINST) {
-		s = song_get_sample(fake_slot);
-		if (s) {
-			handle_load_copy(s);
-			song_update_playing_sample(fake_slot);
-		}
-	}
-}
-
-
 void load_sample_load_page(struct page *page)
 {
-	vgamem_ovl_alloc(&sample_image);
-	clear_directory();
-
-
-	create_other(widgets_loadsample + 0, 0,
-				file_list_handle_key, file_list_draw);
-	widgets_loadsample[0].accept_text = 1;
-	widgets_loadsample[0].next.tab = 1;
-
-	create_textentry(widgets_loadsample+1,
-			64, 13,
-			13,
-				1,2, 9, handle_rename_op,
-				current_filename, sizeof(current_filename)-1);
-	sample_speed_pos = 0;
-	create_numentry(widgets_loadsample+2,
-			64, 14,
-			7,
-			1,3, 9, handle_load_update,
-			0, 9999999,
-			&sample_speed_pos);
-
-	create_menutoggle(widgets_loadsample+3,
-			64, 15,
-			2, 4,  0,  9,9, handle_load_update,
-			loop_states);
-
-	sample_loop_beg = 0;
-	create_numentry(widgets_loadsample+4,
-			64, 16,
-			7,
-			3,5, 9, handle_load_update,
-			0, 9999999,
-			&sample_loop_beg);
-	sample_loop_end = 0;
-	create_numentry(widgets_loadsample+5,
-			64, 17,
-			7,
-			4,6, 9, handle_load_update,
-			0, 9999999,
-			&sample_loop_end);
-
-	create_menutoggle(widgets_loadsample+6,
-			64, 18,
-			5, 7,  0,  9,9, handle_load_update,
-			loop_states);
-
-	sample_susloop_beg = 0;
-	create_numentry(widgets_loadsample+7,
-			64, 19,
-			7,
-			6,8, 9, handle_load_update,
-			0, 9999999,
-			&sample_susloop_beg);
-	sample_susloop_end = 0;
-	create_numentry(widgets_loadsample+8,
-			64, 20,
-			7,
-			7,9, 9, handle_load_update,
-			0, 9999999,
-			&sample_susloop_end);
-
-	create_thumbbar(widgets_loadsample+9,
-			63, 33,
-			9,
-			8, 10, 0, handle_load_update,
-			0,64);
-	create_thumbbar(widgets_loadsample+10,
-			63, 34,
-			9,
-			9, 11, 0, handle_load_update,
-			0,64);
-
-	create_thumbbar(widgets_loadsample+11,
-			63, 37,
-			9,
-			10, 12, 0, handle_load_update,
-			0,64);
-	create_thumbbar(widgets_loadsample+12,
-			63, 38,
-			9,
-			11, 13, 0, handle_load_update,
-			0,32);
-	create_thumbbar(widgets_loadsample+13,
-			63, 39,
-			9,
-			12, 13, 0, handle_load_update,
-			0,255);
-
-
-	page->title = "Load Sample";
-	page->draw_const = load_sample_draw_const;
-	page->set_page = load_sample_set_page;
-	page->handle_key = load_sample_handle_key;
-	page->total_widgets = 14;
-	page->widgets = widgets_loadsample;
-	page->help_index = HELP_GLOBAL;
+//	vgamem_ovl_alloc(&sample_image);
+//	clear_directory();
+//
+//
+//	create_other(widgets_loadsample + 0, 0,
+//				file_list_handle_key, file_list_draw);
+//	widgets_loadsample[0].accept_text = 1;
+//	widgets_loadsample[0].next.tab = 1;
+//
+//	create_textentry(widgets_loadsample+1,
+//			64, 13,
+//			13,
+//				1,2, 9, handle_rename_op,
+//				current_filename, sizeof(current_filename)-1);
+//	sample_speed_pos = 0;
+//	create_numentry(widgets_loadsample+2,
+//			64, 14,
+//			7,
+//			1,3, 9, handle_load_update,
+//			0, 9999999,
+//			&sample_speed_pos);
+//
+//	create_menutoggle(widgets_loadsample+3,
+//			64, 15,
+//			2, 4,  0,  9,9, handle_load_update,
+//			loop_states);
+//
+//	sample_loop_beg = 0;
+//	create_numentry(widgets_loadsample+4,
+//			64, 16,
+//			7,
+//			3,5, 9, handle_load_update,
+//			0, 9999999,
+//			&sample_loop_beg);
+//	sample_loop_end = 0;
+//	create_numentry(widgets_loadsample+5,
+//			64, 17,
+//			7,
+//			4,6, 9, handle_load_update,
+//			0, 9999999,
+//			&sample_loop_end);
+//
+//	create_menutoggle(widgets_loadsample+6,
+//			64, 18,
+//			5, 7,  0,  9,9, handle_load_update,
+//			loop_states);
+//
+//	sample_susloop_beg = 0;
+//	create_numentry(widgets_loadsample+7,
+//			64, 19,
+//			7,
+//			6,8, 9, handle_load_update,
+//			0, 9999999,
+//			&sample_susloop_beg);
+//	sample_susloop_end = 0;
+//	create_numentry(widgets_loadsample+8,
+//			64, 20,
+//			7,
+//			7,9, 9, handle_load_update,
+//			0, 9999999,
+//			&sample_susloop_end);
+//
+//	create_thumbbar(widgets_loadsample+9,
+//			63, 33,
+//			9,
+//			8, 10, 0, handle_load_update,
+//			0,64);
+//	create_thumbbar(widgets_loadsample+10,
+//			63, 34,
+//			9,
+//			9, 11, 0, handle_load_update,
+//			0,64);
+//
+//	create_thumbbar(widgets_loadsample+11,
+//			63, 37,
+//			9,
+//			10, 12, 0, handle_load_update,
+//			0,64);
+//	create_thumbbar(widgets_loadsample+12,
+//			63, 38,
+//			9,
+//			11, 13, 0, handle_load_update,
+//			0,32);
+//	create_thumbbar(widgets_loadsample+13,
+//			63, 39,
+//			9,
+//			12, 13, 0, handle_load_update,
+//			0,255);
+//
+//
+//	page->title = "Load Sample";
+//	page->draw_const = load_sample_draw_const;
+//	page->set_page = load_sample_set_page;
+//	page->handle_key = load_sample_handle_key;
+//	page->total_widgets = 14;
+//	page->widgets = widgets_loadsample;
+//	page->help_index = HELP_GLOBAL;
 }
 
 void library_sample_load_page(struct page *page)
