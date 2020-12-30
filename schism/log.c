@@ -20,30 +20,33 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#ifndef clippy_h
-#define clippy_h
 
-#include "it.h"
-#include "page.h"
+/* It's lo-og, lo-og, it's big, it's heavy, it's wood!
+ * It's lo-og, lo-og, it's better than bad, it's good! */
 
-#define CLIPPY_SELECT   0       /* reflects the current selection */
-#define CLIPPY_BUFFER   1       /* reflects the yank/cut buffer */
+#include "headers.h"
 
-/* called when schism needs a paste operation; cb is CLIPPY_SELECT if the middle button is
-used to paste, otherwise if the "paste key" is pressed, this uses CLIPPY_BUFFER
-*/
-void clippy_paste(int cb);
+#include "log.h"
+#include "util.h"
 
-/* updates the clipboard selection; called by various widgets that perform a copy operation;
-stops at the first null, so setting len to <0 means we get the next utf8 or asciiz string
-*/
-void clippy_select(struct widget *w, char *addr, int len);
-struct widget *clippy_owner(int cb);
+inline void log_append2(int bios_font, int color, int must_free, const char *text)
+{
+}
+inline void log_append(int color, int must_free, const char *text)
+{
+}
+inline void log_nl(void)
+{
+}
+void log_appendf(int color, const char *format, ...)
+{
+}
 
-/* copies the selection to the yank buffer (0 -> 1) */
-void clippy_yank(void);
+void log_underline(int chars)
+{
+}
 
-/* initializes clipboard */
-void clippy_init(void);
+void log_perror(const char *prefix)
+{
+}
 
-#endif

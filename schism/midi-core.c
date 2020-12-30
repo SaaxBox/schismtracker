@@ -33,10 +33,6 @@
 
 #include "sdlmain.h"
 
-#include "page.h"
-
-#include "it.h"
-
 #include "dmoz.h"
 
 #include <ctype.h>
@@ -55,62 +51,6 @@ static SDL_cond *midi_play_cond = NULL;
 
 static struct midi_provider *port_providers = NULL;
 
-
-/* all this just for usleep?! (maybe we should have sys/win32/usleep.c) */
-#ifdef WIN32
-#include <windows.h>
-
-static void (*__win32_usleep)(unsigned int usec) = NULL;
-static void __win32_old_usleep(unsigned int u)
-{
-	/* bah, only Win95 and "earlier" actually needs this... */
-	SleepEx(u/1000,FALSE);
-}
-
-static FARPROC __ihatewindows_f1 = NULL;
-static FARPROC __ihatewindows_f2 = NULL;
-static FARPROC __ihatewindows_f3 = NULL;
-static HANDLE __midi_timer = NULL;
-
-static void __win32_new_usleep(unsigned int u)
-{
-	LARGE_INTEGER due;
-	due.QuadPart = -(10 * (__int64)u);
-	__ihatewindows_f2(__midi_timer, &due, 0, NULL, NULL, 0);
-	__ihatewindows_f3(__midi_timer, INFINITE);
-}
-
-static void __win32_pick_usleep(void)
-{
-	HINSTANCE k32;
-
-	k32 = GetModuleHandle("KERNEL32.DLL");
-	if (!k32) k32 = LoadLibrary("KERNEL32.DLL");
-	if (!k32) k32 = GetModuleHandle("KERNEL32.DLL");
-	if (!k32) goto FAIL;
-	__ihatewindows_f1 = (FARPROC)GetProcAddress(k32,"CreateWaitableTimer");
-	__ihatewindows_f2 = (FARPROC)GetProcAddress(k32,"SetWaitableTimer");
-	__ihatewindows_f3 = (FARPROC)GetProcAddress(k32,"WaitForSingleObject");
-	if (!__ihatewindows_f1 || !__ihatewindows_f2 || !__ihatewindows_f3)
-		goto FAIL;
-	__midi_timer = (HANDLE)__ihatewindows_f1(NULL,TRUE,NULL);
-	if (!__midi_timer) goto FAIL;
-
-	/* grumble */
-	__win32_usleep = __win32_new_usleep;
-	return;
-FAIL:
-	__win32_usleep = __win32_old_usleep;
-}
-
-#define SLEEP_FUNC(x)   __win32_usleep(x)
-
-#else
-
-#define SLEEP_FUNC(x)   usleep(x)
-
-#endif
-
 /* configurable midi stuff */
 int midi_flags = MIDI_TICK_QUANTIZE | MIDI_RECORD_NOTEOFF
 		| MIDI_RECORD_VELOCITY | MIDI_RECORD_AFTERTOUCH
@@ -120,13 +60,11 @@ int midi_pitch_depth = 12;
 int midi_amplification = 100;
 int midi_c5note = 60;
 
-#define CFG_GET_MI(v,d) midi_ ## v = cfg_get_number(cfg, "MIDI", #v, d)
+#define CFG_GET_MI(v,d) midi_ ## v = d
 
 static void _cfg_load_midi_part_locked(struct midi_port *q)
 {
 	struct cfg_section *c;
-	/*struct midi_provider *p;*/
-	cfg_file_t cfg;
 	const char *sn;
 	char *ptr, *ss, *sp;
 	char buf[256];
@@ -142,36 +80,10 @@ static void _cfg_load_midi_part_locked(struct midi_port *q)
 		while (isspace(*sp)) sp++;
 		if (!*sp) sp = NULL;
 	}
-
-	ptr = dmoz_path_concat(cfg_dir_dotschism, "config");
-	cfg_init(&cfg, ptr);
-
-	/* look for MIDI port sections */
-	for (c = cfg.sections; c; c = c->next) {
-		j = -1;
-		sscanf(c->name, "MIDI Port %d", &j);
-		if (j < 1) continue;
-		sn = cfg_get_string(&cfg, c->name, "name", buf, 255, NULL);
-		if (!sn) continue;
-		if (strcasecmp(ss, sn) != 0) continue;
-		sn = cfg_get_string(&cfg, c->name, "provider", buf, 255, NULL);
-		if (sn && sp && strcasecmp(sp, sn) != 0) continue;
-		/* okay found port */
-		if ((q->iocap & MIDI_INPUT) && cfg_get_number(&cfg, c->name, "input", 0)) {
-			q->io |= MIDI_INPUT;
-		}
-		if ((q->iocap & MIDI_OUTPUT) && cfg_get_number(&cfg, c->name, "output", 0)) {
-			q->io |= MIDI_OUTPUT;
-		}
-		if (q->io && q->enable) q->enable(q);
-	}
-
-	cfg_free(&cfg);
-	free(ptr);
 }
 
 
-void cfg_load_midi(cfg_file_t *cfg)
+void load_midi(void)
 {
 	midi_config_t *md, *mc;
 	char buf[17], buf2[33];
@@ -186,138 +98,10 @@ void cfg_load_midi(cfg_file_t *cfg)
 
 	song_lock_audio();
 	md = &default_midi_config;
-	cfg_get_string(cfg,"MIDI","start", md->start, 31, "FF");
-	cfg_get_string(cfg,"MIDI","stop", md->stop, 31, "FC");
-	cfg_get_string(cfg,"MIDI","tick", md->tick, 31, "");
-	cfg_get_string(cfg,"MIDI","note_on", md->note_on, 31, "9c n v");
-	cfg_get_string(cfg,"MIDI","note_off", md->note_off, 31, "9c n 0");
-	cfg_get_string(cfg,"MIDI","set_volume", md->set_volume, 31, "");
-	cfg_get_string(cfg,"MIDI","set_panning", md->set_panning, 31, "");
-	cfg_get_string(cfg,"MIDI","set_bank", md->set_bank, 31, "");
-	cfg_get_string(cfg,"MIDI","set_program", md->set_program, 31, "Cc p");
-	for (i = 0; i < 16; i++) {
-		snprintf(buf, 16, "SF%X", i);
-		cfg_get_string(cfg, "MIDI", buf, md->sfx[i], 31,
-				i == 0 ? "F0F000z" : "");
-	}
-
-	for (i = 0; i < 128; i++) {
-		snprintf(buf, 16, "Z%02X", i + 0x80);
-		if (i < 16)
-			snprintf(buf2, 32, "F0F001%02x", i * 8);
-		else
-			buf2[0] = '\0';
-		cfg_get_string(cfg, "MIDI", buf, md->zxx[i], 31, buf2);
-	}
-
 	mc = &current_song->midi_config;
 	memcpy(mc, md, sizeof(midi_config_t));
 
-
 	song_unlock_audio();
-}
-
-#define CFG_SET_MI(v) cfg_set_number(cfg, "MIDI", #v, midi_ ## v)
-void cfg_save_midi(cfg_file_t *cfg)
-{
-	struct cfg_section *c;
-	struct midi_provider *p;
-	struct midi_port *q;
-	midi_config_t *md, *mc;
-	char buf[33];
-	char *ss;
-	int i, j;
-
-	CFG_SET_MI(flags);
-	CFG_SET_MI(pitch_depth);
-	CFG_SET_MI(amplification);
-	CFG_SET_MI(c5note);
-
-	song_lock_audio();
-	md = &default_midi_config;
-
-	/* overwrite default */
-	mc = &current_song->midi_config;
-	memcpy(md, mc, sizeof(midi_config_t));
-
-	cfg_set_string(cfg,"MIDI","start", md->start);
-	cfg_set_string(cfg,"MIDI","stop", md->stop);
-	cfg_set_string(cfg,"MIDI","tick", md->tick);
-	cfg_set_string(cfg,"MIDI","note_on", md->note_on);
-	cfg_set_string(cfg,"MIDI","note_off", md->note_off);
-	cfg_set_string(cfg,"MIDI","set_volume", md->set_volume);
-	cfg_set_string(cfg,"MIDI","set_panning", md->set_panning);
-	cfg_set_string(cfg,"MIDI","set_bank", md->set_bank);
-	cfg_set_string(cfg,"MIDI","set_program", md->set_program);
-	for (i = 0; i < 16; i++) {
-		snprintf(buf, 32, "SF%X", i);
-		cfg_set_string(cfg, "MIDI", buf, md->sfx[i]);
-	}
-	for (i = 0; i < 128; i++) {
-		snprintf(buf, 32, "Z%02X", i + 0x80);
-		cfg_set_string(cfg, "MIDI", buf, md->zxx[i]);
-	}
-	song_unlock_audio();
-
-	/* write out only enabled midi ports */
-	i = 1;
-	SDL_mutexP(midi_mutex);
-	q = NULL;
-	for (p = port_providers; p; p = p->next) {
-		while (midi_port_foreach(p, &q)) {
-			ss = q->name;
-			if (!ss) continue;
-			while (isspace(*ss)) ss++;
-			if (!*ss) continue;
-			if (!q->io) continue;
-
-			snprintf(buf, 32, "MIDI Port %d", i); i++;
-			cfg_set_string(cfg, buf, "name", ss);
-			ss = p->name;
-			if (ss) {
-				while (isspace(*ss)) ss++;
-				if (*ss) {
-					cfg_set_string(cfg, buf, "provider", ss);
-				}
-			}
-			cfg_set_number(cfg, buf, "input", q->io & MIDI_INPUT ? 1 : 0);
-			cfg_set_number(cfg, buf, "output", q->io & MIDI_OUTPUT ? 1 : 0);
-		}
-	}
-	//TODO: Save number of MIDI-IP ports
-	SDL_mutexV(midi_mutex);
-
-	/* delete other MIDI port sections */
-	for (c = cfg->sections; c; c = c->next) {
-		j = -1;
-		sscanf(c->name, "MIDI Port %d", &j);
-		if (j < i) continue;
-		c->omit = 1;
-	}
-
-}
-
-
-static void _midi_engine_connect(void)
-{
-#ifdef USE_NETWORK
-	ip_midi_setup();
-#endif
-//Prefer ALSA MIDI over OSS, but do not enable both since ALSA's OSS emulation can cause conflicts
-#if defined(USE_ALSA) && defined(USE_OSS)
-	if (!alsa_midi_setup())
-		oss_midi_setup();
-#elif !defined(USE_ALSA) && defined(USE_OSS)
-	oss_midi_setup();
-#elif defined(USE_ALSA) && !defined(USE_OSS)
-	alsa_midi_setup();
-#endif
-#ifdef WIN32
-	win32mm_midi_setup();
-#endif
-#ifdef MACOSX
-	macosx_midi_setup();
-#endif
 }
 
 void midi_engine_poll_ports(void)
@@ -355,7 +139,7 @@ int midi_engine_start(void)
 		return 0;
 	}
 
-	_midi_engine_connect();
+//	_midi_engine_connect();
 	_connected = 1;
 	return 1;
 }
@@ -364,7 +148,7 @@ void midi_engine_reset(void)
 {
 	if (!_connected) return;
 	midi_engine_stop();
-	_midi_engine_connect();
+//	_midi_engine_connect();
 }
 
 void midi_engine_stop(void)
@@ -658,12 +442,12 @@ static int _midi_queue_run(UNUSED void *xtop)
 {
 	int i;
 
-#ifdef WIN32
-	__win32_pick_usleep();
-	SetPriorityClass(GetCurrentProcess(),HIGH_PRIORITY_CLASS);
-	SetThreadPriority(GetCurrentThread(),THREAD_PRIORITY_TIME_CRITICAL);
-	/*SetThreadPriority(GetCurrentThread(),THREAD_PRIORITY_HIGHEST);*/
-#endif
+//#ifdef WIN32
+//	__win32_pick_usleep();
+//	SetPriorityClass(GetCurrentProcess(),HIGH_PRIORITY_CLASS);
+//	SetThreadPriority(GetCurrentThread(),THREAD_PRIORITY_TIME_CRITICAL);
+//	/*SetThreadPriority(GetCurrentThread(),THREAD_PRIORITY_HIGHEST);*/
+//#endif
 
 	SDL_mutexP(midi_play_mutex);
 	for (;;) {
@@ -673,7 +457,7 @@ static int _midi_queue_run(UNUSED void *xtop)
 			SDL_mutexP(midi_record_mutex);
 			_midi_send_unlocked(qq[i].b, qq[i].used, 0, 1);
 			SDL_mutexV(midi_record_mutex);
-			SLEEP_FUNC(10000); /* 10msec */
+//			SLEEP_FUNC(10000); /* 10msec */
 			qq[i].used = 0;
 		}
 	}
@@ -725,11 +509,6 @@ void midi_send_flush(void)
 
 	if (!midi_queue_thread) {
 		midi_queue_thread = SDL_CreateThread(_midi_queue_run, NULL, NULL);
-		if (midi_queue_thread) {
-			log_appendf(3, "Started MIDI queue thread");
-		} else {
-			log_appendf(2, "ACK: Couldn't start MIDI thread; things are likely going to go boom!");
-		}
 	}
 
 	SDL_mutexP(midi_play_mutex);
@@ -742,21 +521,6 @@ void midi_send_buffer(const unsigned char *data, unsigned int len, unsigned int 
 	if (!midi_record_mutex) return;
 
 	SDL_mutexP(midi_record_mutex);
-
-	/* just for fun... */
-	if (status.current_page == PAGE_MIDI) {
-		status.last_midi_real_len = len;
-		if (len > sizeof(status.last_midi_event)) {
-			status.last_midi_len = sizeof(status.last_midi_event);
-		} else {
-			status.last_midi_len = len;
-		}
-		memcpy(status.last_midi_event, data, status.last_midi_len);
-		status.flags |= MIDI_EVENT_CHANGED;
-		status.last_midi_port = NULL;
-		time(&status.last_midi_time);
-		status.flags |= NEED_UPDATE;
-	}
 
 	/* pos is still in miliseconds */
 	if (midims != 0 && _midi_send_unlocked(data, len, pos/midims, 2)) {
@@ -812,26 +576,6 @@ void midi_received_cb(struct midi_port *src, unsigned char *data, unsigned int l
 		memset(d4, 0, sizeof(d4));
 		memcpy(d4, data, len);
 		data = d4;
-	}
-
-	/* just for fun... */
-	SDL_mutexP(midi_record_mutex);
-	status.last_midi_real_len = len;
-	if (len > sizeof(status.last_midi_event)) {
-		status.last_midi_len = sizeof(status.last_midi_event);
-	} else {
-		status.last_midi_len = len;
-	}
-	memcpy(status.last_midi_event, data, status.last_midi_len);
-	status.flags |= MIDI_EVENT_CHANGED;
-	status.last_midi_port = src;
-	time(&status.last_midi_time);
-	SDL_mutexV(midi_record_mutex);
-
-	/* pass through midi events when on midi page */
-	if (status.current_page == PAGE_MIDI) {
-		midi_send_now(data,len);
-		status.flags |= NEED_UPDATE;
 	}
 
 	cmd = ((*data) & 0xF0) >> 4;
@@ -936,79 +680,5 @@ void midi_event_sysex(const unsigned char *data, unsigned int len)
 	memcpy(packet + sizeof(len), data, len);
 
 	midi_push_event(SCHISM_EVENT_MIDI_SYSEX, packet, packet_len, 0);
-}
-
-int midi_engine_handle_event(void *ev)
-{
-	struct key_event kk = {.is_synthetic = 0};
-	int *st;
-	SDL_Event *e = ev;
-
-	if (e->type != SCHISM_EVENT_MIDI)
-		return 0;
-
-	st = e->user.data1;
-	if (midi_flags & MIDI_DISABLE_RECORD) {
-		free(e->user.data1);
-		return 1;
-	}
-
-	switch (e->user.code) {
-	case SCHISM_EVENT_MIDI_NOTE:
-		if (st[0] == MIDI_NOTEON) {
-			kk.state = KEY_PRESS;
-		} else {
-			if (!(midi_flags & MIDI_RECORD_NOTEOFF)) {
-				/* don't record noteoff? okay... */
-				break;
-			}
-			kk.state = KEY_RELEASE;
-		}
-		kk.midi_channel = st[1]+1;
-		kk.midi_note = (st[2]+1 + midi_c5note) - 60;
-		if (midi_flags & MIDI_RECORD_VELOCITY)
-			kk.midi_volume = st[3];
-		else
-			kk.midi_volume = 128;
-		kk.midi_volume = (kk.midi_volume * midi_amplification) / 100;
-		handle_key(&kk);
-		break;
-	case SCHISM_EVENT_MIDI_PITCHBEND:
-		/* wheel */
-		kk.midi_channel = st[1]+1;
-		kk.midi_volume = -1;
-		kk.midi_note = -1;
-		kk.midi_bend = st[0];
-		handle_key(&kk);
-		break;
-	case SCHISM_EVENT_MIDI_CONTROLLER:
-		/* controller events */
-		break;
-	case SCHISM_EVENT_MIDI_SYSTEM:
-		switch (st[0]) {
-		case 0x8: /* MIDI tick */
-			break;
-		case 0xA: /* MIDI start */
-		case 0xB: /* MIDI continue */
-			song_start();
-			break;
-		case 0xC: /* MIDI stop */
-		case 0xF: /* MIDI reset */
-			/* this is helpful when miditracking */
-			song_stop();
-			break;
-		};
-	case SCHISM_EVENT_MIDI_SYSEX:
-		/* but missing the F0 and the stop byte (F7) */
-		//len = *((unsigned int *)e->user.data1);
-		//sysex = ((char *)e->user.data1)+sizeof(unsigned int);
-		break;
-
-	default:
-		break;
-	}
-	free(e->user.data1);
-
-	return 1;
 }
 

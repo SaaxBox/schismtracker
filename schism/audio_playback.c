@@ -23,15 +23,11 @@
 
 #include "headers.h"
 
-#include "it.h"
-#include "page.h"
 #include "cmixer.h"
 #include "sndfile.h"
 #include "song.h"
 #include "slurp.h"
-#include "config-parser.h"
 
-#include "disko.h"
 #include "event.h"
 
 #include <assert.h>
@@ -84,12 +80,6 @@ static int audio_writeout_count = 0;
 struct audio_settings audio_settings;
 
 static void _schism_midi_out_note(int chan, const song_note_t *m);
-static void _schism_midi_out_raw(const unsigned char *data, unsigned int len, unsigned int delay);
-
-/* Audio driver related stuff */
-
-/* The (short) name of the SDL driver in use, e.g. "alsa" */
-static const char *driver_name = "unknown";
 
 /* This is the full driver spec for whatever device was successfully init'ed when audio was set up.
 When reinitializing the audio, this can be used to reacquire the same device. Hopefully. */
@@ -104,11 +94,7 @@ static SDL_AudioDeviceID audio_dev;
 // ------------------------------------------------------------------------
 // playback
 
-extern int midi_bend_hit[64], midi_last_bend_hit[64];
-extern void vis_work_16s(short *in, int inlen);
-extern void vis_work_16m(short *in, int inlen);
-extern void vis_work_8s(char *in, int inlen);
-extern void vis_work_8m(char *in, int inlen);
+int midi_bend_hit[64], midi_last_bend_hit[64];
 
 // this gets called from sdl
 static void audio_callback(UNUSED void *qq, uint8_t * stream, int len)
@@ -120,9 +106,6 @@ static void audio_callback(UNUSED void *qq, uint8_t * stream, int len)
 	memset(stream, 0, len);
 
 	if (!stream || !len || !current_song) {
-		if (status.current_page == PAGE_WATERFALL || status.vis_style == VIS_FFT) {
-			vis_work_8m(NULL, 0);
-		}
 		song_stop_unlocked(0);
 		goto POST_EVENT;
 	}
@@ -138,10 +121,6 @@ static void audio_callback(UNUSED void *qq, uint8_t * stream, int len)
 	} else {
 		n = csf_read(current_song, stream, len);
 		if (!n) {
-			if (status.current_page == PAGE_WATERFALL
-			|| status.vis_style == VIS_FFT) {
-				vis_work_8m(NULL, 0);
-			}
 			song_stop_unlocked(0);
 			goto POST_EVENT;
 		}
@@ -157,21 +136,6 @@ static void audio_callback(UNUSED void *qq, uint8_t * stream, int len)
 		n *= audio_output_channels;
 		for (i = 0; i < n; i++) {
 			stream[i] ^= 128;
-		}
-		if (status.current_page == PAGE_WATERFALL
-		|| status.vis_style == VIS_FFT) {
-			if (audio_output_channels == 2) {
-				vis_work_8s((char*)stream, n/2);
-			} else {
-				vis_work_8m((char*)stream, n);
-			}
-		}
-	} else if (status.current_page == PAGE_WATERFALL
-				|| status.vis_style == VIS_FFT) {
-		if (audio_output_channels == 2) {
-			vis_work_16s((short*)stream, n);
-		} else {
-			vis_work_16m((short*)stream, n);
 		}
 	}
 
@@ -201,14 +165,14 @@ POST_EVENT:
 
 /* this should be in page.c; the audio handling code doesn't need to know what
    a page is, much less be talking to them */
-static void main_song_mode_changed_cb(void)
-{
-	int n;
-	for (n = 0; n < PAGE_MAX; n++) {
-		if (pages[n].song_mode_changed_cb)
-			pages[n].song_mode_changed_cb();
-	}
-}
+//static void main_song_mode_changed_cb(void)
+//{
+//	int n;
+//	for (n = 0; n < PAGE_MAX; n++) {
+//		if (pages[n].song_mode_changed_cb)
+//			pages[n].song_mode_changed_cb();
+//	}
+//}
 
 
 static int current_play_channel = 1;
@@ -230,13 +194,13 @@ void song_change_current_play_channel(int relative, int wraparound)
 	} else {
 		current_play_channel = CLAMP(current_play_channel, 1, 64);
 	}
-	status_text_flash("Using channel %d for playback", current_play_channel);
+//	status_text_flash("Using channel %d for playback", current_play_channel);
 }
 
 void song_toggle_multichannel_mode(void)
 {
 	multichannel_mode = !multichannel_mode;
-	status_text_flash("Multichannel playback %s", (multichannel_mode ? "enabled" : "disabled"));
+//	status_text_flash("Multichannel playback %s", (multichannel_mode ? "enabled" : "disabled"));
 }
 
 int song_is_multichannel_mode(void)
@@ -335,7 +299,7 @@ static int song_keydown_ex(int samp, int ins, int note, int vol, int chan, int e
 
 			i->played = 1;
 
-			if ((status.flags & MIDI_LIKE_TRACKER) && i) {
+			if (i) {
 				if (i->midi_channel_mask) {
 					GM_KeyOff(chan_internal);
 					GM_DPatch(chan_internal, i->midi_program, i->midi_bank, i->midi_channel_mask);
@@ -386,7 +350,7 @@ static int song_keydown_ex(int samp, int ins, int note, int vol, int chan, int e
 		c->increment = -c->increment; // lousy hack
 	csf_note_change(current_song, chan_internal, note, 0, 0, 1);
 
-	if (!(status.flags & MIDI_LIKE_TRACKER) && i) {
+	if (0 && i) {
 		/* midi keyjazz shouldn't require a sample */
 		mc.note = note ? note : midi_note;
 
@@ -505,7 +469,7 @@ void song_start_once(void)
 
 	GM_SendSongStartCode();
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
 }
@@ -519,7 +483,7 @@ void song_start(void)
 
 	GM_SendSongStartCode();
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
 }
@@ -531,7 +495,7 @@ void song_pause(void)
 	if (!(current_song->flags & SONG_PAUSED))
 		current_song->flags ^= SONG_ENDREACHED;
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 }
 
 void song_stop(void)
@@ -539,7 +503,7 @@ void song_stop(void)
 	song_lock_audio();
 	song_stop_unlocked(0);
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 }
 
 /* for midi translation */
@@ -610,8 +574,6 @@ void song_stop_unlocked(int quitting)
 	memset(was_banklo,0,sizeof(was_banklo));
 	memset(was_bankhi,0,sizeof(was_bankhi));
 
-	playback_tracing = midi_playback_tracing;
-
 	song_reset_play_state();
 	// Modplug doesn't actually have a "stop" mode, but if SONG_ENDREACHED is set, current_song->Read just returns.
 	current_song->flags |= SONG_PAUSED | SONG_ENDREACHED;
@@ -620,9 +582,6 @@ void song_stop_unlocked(int quitting)
 	global_vu_right = 0;
 	memset(audio_buffer, 0, audio_buffer_samples * audio_sample_size);
 }
-
-
-
 
 void song_loop_pattern(int pattern, int row)
 {
@@ -636,7 +595,7 @@ void song_loop_pattern(int pattern, int row)
 	GM_SendSongStartCode();
 
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
 }
@@ -654,7 +613,7 @@ void song_start_at_order(int order, int row)
 	GM_SendSongStartCode();
 	/* TODO: GM_SendSongPositionCode(calculate the number of 1/16 notes) */
 	song_unlock_audio();
-	main_song_mode_changed_cb();
+//	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
 }
@@ -951,9 +910,9 @@ void song_set_surround(int on)
 // well this is certainly a dopey place to put this, config having nothing to do with playback... maybe i
 // should put all the cfg_ stuff in config.c :/
 
-#define CFG_GET_A(v,d) audio_settings.v = cfg_get_number(cfg, "Audio", #v, d)
-#define CFG_GET_M(v,d) audio_settings.v = cfg_get_number(cfg, "Mixer Settings", #v, d)
-void cfg_load_audio(cfg_file_t *cfg)
+#define CFG_GET_A(v,d) audio_settings.v = d
+#define CFG_GET_M(v,d) audio_settings.v = d
+void load_audio(void)
 {
 	CFG_GET_A(sample_rate, DEF_SAMPLE_RATE);
 	CFG_GET_A(bits, 16);
@@ -961,8 +920,6 @@ void cfg_load_audio(cfg_file_t *cfg)
 	CFG_GET_A(buffer_size, DEF_BUFFER_SIZE);
 	CFG_GET_A(master.left, 31);
 	CFG_GET_A(master.right, 31);
-
-	cfg_get_string(cfg, "Audio", "driver", cfg_audio_driver, 255, NULL);
 
 	CFG_GET_M(channel_limit, DEF_CHANNEL_LIMIT);
 	CFG_GET_M(interpolation_mode, SRCMODE_LINEAR);
@@ -976,64 +933,15 @@ void cfg_load_audio(cfg_file_t *cfg)
 	audio_settings.channel_limit = CLAMP(audio_settings.channel_limit, 4, MAX_VOICES);
 	audio_settings.interpolation_mode = CLAMP(audio_settings.interpolation_mode, 0, 3);
 
-	audio_settings.eq_freq[0] = cfg_get_number(cfg, "EQ Low Band", "freq", 0);
-	audio_settings.eq_freq[1] = cfg_get_number(cfg, "EQ Med Low Band", "freq", 16);
-	audio_settings.eq_freq[2] = cfg_get_number(cfg, "EQ Med High Band", "freq", 96);
-	audio_settings.eq_freq[3] = cfg_get_number(cfg, "EQ High Band", "freq", 127);
+	audio_settings.eq_freq[0] = 0; 	 // EQ Low Band freq
+	audio_settings.eq_freq[1] = 16;  // EQ Med Low Band freq
+	audio_settings.eq_freq[2] = 96;  // EQ Med High Band freq
+	audio_settings.eq_freq[3] = 127; // EQ High Band freq
 
-	audio_settings.eq_gain[0] = cfg_get_number(cfg, "EQ Low Band", "gain", 0);
-	audio_settings.eq_gain[1] = cfg_get_number(cfg, "EQ Med Low Band", "gain", 0);
-	audio_settings.eq_gain[2] = cfg_get_number(cfg, "EQ Med High Band", "gain", 0);
-	audio_settings.eq_gain[3] = cfg_get_number(cfg, "EQ High Band", "gain", 0);
-
-	if (cfg_get_number(cfg, "General", "stop_on_load", 1)) {
-		status.flags &= ~PLAY_AFTER_LOAD;
-	} else {
-		status.flags |= PLAY_AFTER_LOAD;
-	}
-}
-
-#define CFG_SET_A(v) cfg_set_number(cfg, "Audio", #v, audio_settings.v)
-#define CFG_SET_M(v) cfg_set_number(cfg, "Mixer Settings", #v, audio_settings.v)
-void cfg_atexit_save_audio(cfg_file_t *cfg)
-{
-	CFG_SET_A(sample_rate);
-	CFG_SET_A(bits);
-	CFG_SET_A(channels);
-	CFG_SET_A(buffer_size);
-	CFG_SET_A(master.left);
-	CFG_SET_A(master.right);
-
-	CFG_SET_M(channel_limit);
-	CFG_SET_M(interpolation_mode);
-	CFG_SET_M(no_ramping);
-
-	// Say, what happened to the switch for this in the gui?
-	CFG_SET_M(surround_effect);
-
-	// hmmm....
-	//     [Equalizer]
-	//     low_band=freq/gain
-	//     med_low_band=freq/gain
-	//     etc.
-	// would be a cleaner way of storing this
-
-	cfg_set_number(cfg, "EQ Low Band", "freq", audio_settings.eq_freq[0]);
-	cfg_set_number(cfg, "EQ Med Low Band", "freq", audio_settings.eq_freq[1]);
-	cfg_set_number(cfg, "EQ Med High Band", "freq", audio_settings.eq_freq[2]);
-	cfg_set_number(cfg, "EQ High Band", "freq", audio_settings.eq_freq[3]);
-
-	cfg_set_number(cfg, "EQ Low Band", "gain", audio_settings.eq_gain[0]);
-	cfg_set_number(cfg, "EQ Med Low Band", "gain", audio_settings.eq_gain[1]);
-	cfg_set_number(cfg, "EQ Med High Band", "gain", audio_settings.eq_gain[2]);
-	cfg_set_number(cfg, "EQ High Band", "gain", audio_settings.eq_gain[3]);
-}
-
-void cfg_save_audio(cfg_file_t *cfg)
-{
-	cfg_atexit_save_audio(cfg);
-
-	cfg_set_number(cfg, "General", "stop_on_load", !(status.flags & PLAY_AFTER_LOAD));
+	audio_settings.eq_gain[0] = 0; // EQ Low Band gain
+	audio_settings.eq_gain[1] = 0; // EQ Med Low Band gain
+	audio_settings.eq_gain[2] = 0; // EQ Med High Band gain
+	audio_settings.eq_gain[3] = 0; // EQ High Band gain
 }
 
 // ------------------------------------------------------------------------------------------------------------
@@ -1048,7 +956,7 @@ static void _schism_midi_out_note(int chan, const song_note_t *starting_note)
 	int need_note, need_velocity;
 	song_voice_t *c;
 
-	if (!current_song || !song_is_instrument_mode() || (status.flags & MIDI_LIKE_TRACKER)) return;
+//	if (!current_song || !song_is_instrument_mode()) return;
 
     /*if(m)
     fprintf(stderr, "midi_out_note called (ch %d)note(%d)instr(%d)volcmd(%02X)cmd(%02X)vol(%02X)p(%02X)\n",
@@ -1191,21 +1099,6 @@ printf("channel = %d note=%d starting_note=%p\n",chan,m_note,starting_note);
 	}
 
 }
-static void _schism_midi_out_raw(const unsigned char *data, unsigned int len, unsigned int pos)
-{
-#if 0
-	i = (8000*(audio_buffer_samples - delay));
-	i /= (current_song->mix_frequency);
-#endif
-#if 0
-	for (int i=0; i < len; i++) {
-		printf("%02x ",data[i]);
-	}puts("");
-#endif
-
-	if (!_disko_writemidi(data,len,pos)) midi_send_buffer(data,len,pos);
-}
-
 
 
 // ------------------------------------------------------------------------------------------------------------
@@ -1228,82 +1121,17 @@ void song_stop_audio(void)
 }
 
 
-static void song_print_info_top(const char *d)
-{
-	log_append(2, 0, "Audio initialised");
-	log_underline(17);
-	log_appendf(5, " Using driver '%s'", d);
-}
-
-
 /* --------------------------------------------------------------------------------------------------------- */
 /* Nasty stuff here */
-
-const char *song_audio_driver(void)
-{
-	return driver_name;
-}
-
-/* NOTE: driver_spec must not be NULL here */
-static void _audio_set_envvars(const char *driver_spec)
-{
-	char *driver = NULL, *device = NULL;
-
-	if (!*driver_spec) {
-		unset_env_var("SDL_AUDIODRIVER");
-	} else if (str_break(driver_spec, ':', &driver, &device)) {
-		/* "nosound" and "none" are for the sake of older versions: --help suggested using
-		"none", but the name presented in the rest of the interface was "nosound".
-		"oss" is a synonym for "dsp" because everyone should know what "oss" is and "dsp"
-		is a lousy name for an audio driver */
-		put_env_var("SDL_AUDIODRIVER",
-			(strcmp(driver, "oss") == 0) ? "dsp"
-			: (strcmp(driver, "nosound") == 0) ? "dummy"
-			: (strcmp(driver, "none") == 0) ? "dummy"
-			: driver);
-		if (*device) {
-			/* Documentation says that SDL_PATH_DSP overrides AUDIODEV if it's set,
-			but the SDL alsa code only looks at AUDIODEV. Annoying. */
-			put_env_var("AUDIODEV", device);
-			put_env_var("SDL_PATH_DSP", device);
-		}
-
-		free(driver);
-		free(device);
-	} else {
-		/* Assuming just the driver was given.
-		(Old behavior was trying to guess -- selecting 'dsp' driver for /dev/dsp, etc.
-		but this is rather flaky and problematic) */
-		put_env_var("SDL_AUDIODRIVER", driver_spec);
-	}
-
-	strncpy(active_audio_driver, driver_spec, sizeof(active_audio_driver));
-	active_audio_driver[sizeof(active_audio_driver) - 1] = '\0';
-}
 
 /* NOTE: driver_spec must not be NULL here
 'verbose' => print stuff to the log about what device/driver was configured */
 static int _audio_open(const char *driver_spec, int verbose)
 {
-	if (!(getenv("SDL_AUDIODRIVER") || getenv("AUDIODEV") || getenv("SDL_PATH_DSP"))
-		&& (cfg_audio_driver[0] == '\0'))
-		_audio_set_envvars(driver_spec);
-
 	if (SDL_WasInit(SDL_INIT_AUDIO))
 		SDL_QuitSubSystem(SDL_INIT_AUDIO);
 	if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0)
 		return 0;
-
-	/* This is needed in order to coax alsa into actually respecting the buffer size, since it's evidently
-	ignored entirely for "fake" devices such as "default" -- which SDL happens to use if no device name
-	is set. (see SDL_alsa_audio.c: http://tinyurl.com/ybf398f)
-	If hw doesn't exist, so be it -- let this fail, we'll fall back to the dummy device, and the
-	user can pick a more reasonable device later. */
-	if ((driver_name = SDL_GetCurrentAudioDriver()) != NULL && !strcmp(driver_name, "alsa")) {
-		char *dev = getenv("AUDIODEV");
-		if (!dev || !*dev)
-			put_env_var("AUDIODEV", "hw");
-	}
 
 	/* ... THIS is needed because, if the buffer size isn't a power of two, the dsp driver will punt since
 	it's not nice enough to fix it for us. (contrast alsa, which is TOO nice and fixes it even when we
@@ -1330,9 +1158,6 @@ static int _audio_open(const char *driver_spec, int verbose)
 	if (!(audio_dev = SDL_OpenAudioDevice(NULL, 0, &desired, &obtained, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE)))
 		return 0;
 
-	/* I don't know why this would change between SDL_AudioInit and SDL_OpenAudio, but I'm paranoid */
-	driver_name = SDL_GetCurrentAudioDriver();
-
 	song_lock_audio();
 
 	/* format&255 is SDL specific... need bits */
@@ -1343,14 +1168,6 @@ static int _audio_open(const char *driver_spec, int verbose)
 	audio_output_bits = obtained.format & 255;
 	audio_sample_size = audio_output_channels * (audio_output_bits/8);
 	audio_buffer_samples = obtained.samples;
-
-	if (verbose) {
-		song_print_info_top(driver_name);
-
-		log_appendf(5, " %d Hz, %d bit, %s", obtained.freq, (obtained.format & 0xff),
-			obtained.channels == 1 ? "mono" : "stereo");
-		log_appendf(5, " Buffer size: %d samples", obtained.samples);
-	}
 
 	return 1;
 }
@@ -1392,10 +1209,6 @@ static void _audio_init_head(const char *driver_spec, int verbose)
 				err = ugh;
 			}
 		}
-
-		log_appendf(4, "%s: %s", driver_spec, err);
-		log_appendf(4, "Retrying with default device...");
-		log_nl();
 	}
 
 	/* Try the default device? */
@@ -1403,7 +1216,6 @@ static void _audio_init_head(const char *driver_spec, int verbose)
 		return;
 
 	err_default = SDL_GetError();
-	log_appendf(4, "%s", err_default);
 
 	if (!_audio_open("dummy", 0)) {
 		/* yarrr, abandon ship! */
@@ -1411,7 +1223,7 @@ static void _audio_init_head(const char *driver_spec, int verbose)
 			fprintf(stderr, "%s: %s\n", driver_spec, err);
 		fprintf(stderr, "%s\n", err_default);
 		fprintf(stderr, "Couldn't initialise audio!\n");
-		schism_exit(1);
+		exit(1);
 	}
 }
 
@@ -1421,7 +1233,7 @@ static void _audio_init_tail(void)
 {
 	free(audio_buffer);
 	audio_buffer = mem_calloc(audio_buffer_samples, audio_sample_size);
-	samples_played = (status.flags & CLASSIC_MODE) ? SMP_INIT : 0;
+	samples_played = 0;
 
 	song_unlock_audio();
 	song_start_audio();
@@ -1435,19 +1247,9 @@ void audio_init(const char *driver_spec)
 
 void audio_reinit(void)
 {
-	if (status.flags & (DISKWRITER_ACTIVE|DISKWRITER_ACTIVE_PATTERN)) {
-		/* never allowed */
-		return;
-	}
 	song_stop();
 	_audio_init_head(active_audio_driver, 0);
 	_audio_init_tail();
-
-	if (status.flags & CLASSIC_MODE)
-		// FIXME: but we spontaneously report a GUS card sometimes...
-		status_text_flash("Sound Blaster 16 reinitialised");
-	else
-		status_text_flash("Audio output reinitialised");
 }
 
 /* --------------------------------------------------------------------------------------------------------- */
@@ -1496,8 +1298,6 @@ void song_init_modplug(void)
 void song_initialise(void)
 {
 	csf_midi_out_note = _schism_midi_out_note;
-	csf_midi_out_raw = _schism_midi_out_raw;
-
 
 	current_song = csf_allocate();
 

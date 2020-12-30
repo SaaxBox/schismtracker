@@ -87,6 +87,7 @@ int midi_engine_start(void);
 void midi_engine_reset(void);
 void midi_engine_stop(void);
 void midi_engine_poll_ports(void);
+void load_midi(void);
 
 /* some parts of schism call this; it means "immediately" */
 void midi_send_now(const unsigned char *seq, unsigned int len);
@@ -97,9 +98,6 @@ void midi_send_flush(void);
 
 /* used by the audio thread */
 int midi_need_flush(void);
-
-/* from the SDL event mechanism (x is really SDL_Event) */
-int midi_engine_handle_event(void *x);
 
 struct midi_port *midi_engine_port(int n, const char **name);
 int midi_engine_port_count(void);

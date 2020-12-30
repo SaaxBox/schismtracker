@@ -28,7 +28,6 @@
 
 #include "sndfile.h"
 #include "util.h"
-#include "disko.h"
 #include "fmt.h"
 
 /* --------------------------------------------------------------------- */
@@ -123,23 +122,16 @@ void song_clear_sample(int n);
 void song_copy_sample(int n, song_sample_t *src);
 int song_load_sample(int n, const char *file);
 
-void song_create_host_instrument(int smp);
+void song_create_host_instrument(int smp, int ins);
 
 int song_load_instrument(int n, const char *file);
 int song_load_instrument_ex(int n, const char *file, const char *libf, int nx);
-int song_save_instrument(int n, const char *file);
 
 int song_sample_is_empty(int n);
 
 /* search the orderlist for a pattern, starting at the current order.
 return value of -1 means the pattern isn't on the list */
 int song_next_order_for_pattern(int pat);
-
-const char *song_get_filename(void);
-const char *song_get_basename(void);
-const char *song_get_tracker_id(void);
-char *song_get_title(void);     // editable
-char *song_get_message(void);   // editable
 
 // returned value = seconds
 unsigned int song_get_length_to(int order, int row);
@@ -244,6 +236,7 @@ void audio_reinit(void);
 void song_init_eq(int do_reset, uint32_t mix_freq);
 
 /* --------------------------------------------------------------------- */
+void load_audio(void);
 /* playback */
 void song_lock_audio(void);
 void song_unlock_audio(void);

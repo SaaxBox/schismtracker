@@ -26,7 +26,6 @@
 #include "snd_fm.h"
 #include "snd_gm.h"
 #include "cmixer.h"
-#include "it.h"
 
 #include "util.h" /* for clamp */
 
