@@ -15,6 +15,7 @@
 #  endif
 
 #  include <SDL.h>
+#  include <SDL_events.h>
 #  include <SDL_thread.h>
 #  ifndef __cplusplus
 #    include <SDL_syswm.h>

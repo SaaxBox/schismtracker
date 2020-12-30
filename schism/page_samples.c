@@ -705,12 +705,12 @@ static void sample_amplify_dialog(void)
 
 	create_thumbbar(sample_amplify_widgets + 0, 13, 30, 51, 0, 1, 1, NULL, 0, 400);
 	sample_amplify_widgets[0].d.thumbbar.value = percent;
-	create_button(sample_amplify_widgets + 1, 31, 33, 6, 0, 1, 2, 2, 2, dialog_yes_NULL, "OK", 3);
-	create_button(sample_amplify_widgets + 2, 41, 33, 6, 0, 2, 1, 1, 1, dialog_cancel_NULL, "Cancel", 1);
-
-	dialog = dialog_create_custom(9, 25, 61, 11, sample_amplify_widgets,
-				      3, 0, sample_amplify_draw_const, NULL);
-	dialog->action_yes = do_amplify;
+//	create_button(sample_amplify_widgets + 1, 31, 33, 6, 0, 1, 2, 2, 2, dialog_yes_NULL, "OK", 3);
+//	create_button(sample_amplify_widgets + 2, 41, 33, 6, 0, 2, 1, 1, 1, dialog_cancel_NULL, "Cancel", 1);
+//
+//	dialog = dialog_create_custom(9, 25, 61, 11, sample_amplify_widgets,
+//				      3, 0, sample_amplify_draw_const, NULL);
+//	dialog->action_yes = do_amplify;
 }
 
 /* --------------------------------------------------------------------- */
@@ -756,11 +756,11 @@ static void txtsynth_dialog(void)
 
 	txtsynth_entry[0] = 0;
 	create_textentry(txtsynth_widgets + 0, 13, 30, 53, 0, 1, 1, NULL, txtsynth_entry, 65535);
-	create_button(txtsynth_widgets + 1, 31, 33, 6, 0, 1, 2, 2, 2, dialog_yes_NULL, "OK", 3);
-	create_button(txtsynth_widgets + 2, 41, 33, 6, 0, 2, 1, 1, 1, dialog_cancel_NULL, "Cancel", 1);
-
-	dialog = dialog_create_custom(9, 25, 61, 11, txtsynth_widgets, 3, 0, txtsynth_draw_const, NULL);
-	dialog->action_yes = do_txtsynth;
+//	create_button(txtsynth_widgets + 1, 31, 33, 6, 0, 1, 2, 2, 2, dialog_yes_NULL, "OK", 3);
+//	create_button(txtsynth_widgets + 2, 41, 33, 6, 0, 2, 1, 1, 1, dialog_cancel_NULL, "Cancel", 1);
+//
+//	dialog = dialog_create_custom(9, 25, 61, 11, txtsynth_widgets, 3, 0, txtsynth_draw_const, NULL);
+//	dialog->action_yes = do_txtsynth;
 }
 
 /* --------------------------------------------------------------------- */
@@ -916,7 +916,7 @@ static int do_adlib_handlekey(struct key_event *kk)
 			return 1;
 		status.current_help_index = HELP_ADLIB_SAMPLE;
 		dialog_f1_hack = 1;
-		dialog_destroy_all();
+//		dialog_destroy_all();
 		set_page(PAGE_HELP);
 		return 1;
 	}
@@ -975,31 +975,11 @@ static void sample_adlibconfig_dialog(UNUSED void *ign)
 		}
 	}
 
-	dialog = dialog_create_custom(9, 30, 61, 15, sample_adlibconfig_widgets,
-				  ARRAY_SIZE(adlibconfig_widgets), 0,
-				  sample_adlibconfig_draw_const, NULL);
-	dialog->action_yes = do_adlibconfig;
-	dialog->handle_key = do_adlib_handlekey;
-}
-
-
-static void sample_adlibpatch_finish(int n)
-{
-	song_sample_t *sample;
-
-	if (n <= 0 || n > 128)
-		return;
-
-	sample = song_get_sample(current_sample);
-	adlib_patch_apply((song_sample_t *) sample, n - 1);
-	status.flags |= NEED_UPDATE | SONG_NEEDS_SAVE; // redraw the sample
-
-	sample_host_dialog(-1);
-}
-
-static void sample_adlibpatch_dialog(UNUSED void *ign)
-{
-	numprompt_create("Enter Patch (1-128)", sample_adlibpatch_finish, 0);
+//	dialog = dialog_create_custom(9, 30, 61, 15, sample_adlibconfig_widgets,
+//				  ARRAY_SIZE(adlibconfig_widgets), 0,
+//				  sample_adlibconfig_draw_const, NULL);
+//	dialog->action_yes = do_adlibconfig;
+//	dialog->handle_key = do_adlib_handlekey;
 }
 
 /* --------------------------------------------------------------------- */
@@ -1010,397 +990,6 @@ struct sample_save_data {
 	/* char *options? */
 	const char *format;
 };
-
-static void save_sample_free_data(void *ptr)
-{
-	struct sample_save_data *data = (struct sample_save_data *) ptr;
-	if (data->path)
-		free(data->path);
-	free(data);
-}
-
-static void do_save_sample(void *ptr)
-{
-	struct sample_save_data *data = (struct sample_save_data *) ptr;
-
-	// I guess this function doesn't need to care about the return value,
-	// since song_save_sample is handling all the visual feedback...
-	song_save_sample(data->path, data->format, song_get_sample(current_sample), current_sample);
-	save_sample_free_data(ptr);
-}
-
-static void sample_save(const char *filename, const char *format)
-{
-	song_sample_t *sample = song_get_sample(current_sample);
-	char *ptr, *q;
-	struct sample_save_data *data;
-	struct stat buf;
-	int tmp;
-
-	if (stat(cfg_dir_samples, &buf) == -1) {
-		status_text_flash("Sample directory \"%s\" unreachable", filename);
-		return;
-	}
-
-	tmp=0;
-	data = mem_alloc(sizeof(struct sample_save_data));
-	if (!S_ISDIR(buf.st_mode)) {
-		/* directory browsing */
-		q = strrchr(cfg_dir_samples, DIR_SEPARATOR);
-		if (q) {
-			tmp = q[1];
-			q[1] = '\0';
-		}
-	} else {
-		q = NULL;
-	}
-
-	ptr = dmoz_path_concat(cfg_dir_samples, filename ? : sample->filename);
-	if (q) q[1] = tmp;
-
-	data->path = ptr;
-	data->format = format;
-
-	if (filename && *filename && stat(ptr, &buf) == 0) {
-		if (S_ISREG(buf.st_mode)) {
-			dialog_create(DIALOG_OK_CANCEL, "Overwrite file?",
-				      do_save_sample, save_sample_free_data, 1, data);
-			/* callback will free it */
-		} else if (S_ISDIR(buf.st_mode)) {
-			status_text_flash("%s is a directory", filename);
-			save_sample_free_data(data);
-		} else {
-			status_text_flash("%s is not a regular file", filename);
-			save_sample_free_data(data);
-		}
-	} else {
-		do_save_sample(data);
-	}
-}
-
-/* export sample dialog */
-
-static struct widget export_sample_widgets[4];
-static char export_sample_filename[NAME_MAX + 1] = "";
-static int export_sample_format = 0;
-
-static void do_export_sample(UNUSED void *data)
-{
-	sample_save(export_sample_filename, sample_save_formats[export_sample_format].label);
-}
-
-static void export_sample_list_draw(void)
-{
-	int n, focused = (*selected_widget == 3);
-
-	draw_fill_chars(53, 24, 56, 31, 0);
-	for (n = 0; sample_save_formats[n].label; n++) {
-		int fg = 6, bg = 0;
-		if (focused && n == export_sample_format) {
-			fg = 0;
-			bg = 3;
-		} else if (n == export_sample_format) {
-			bg = 14;
-		}
-		draw_text_len(sample_save_formats[n].label, 4, 53, 24 + n, fg, bg);
-	}
-}
-
-static int export_sample_list_handle_key(struct key_event * k)
-{
-	int new_format = export_sample_format;
-
-	if (k->state == KEY_RELEASE)
-		return 0;
-	switch (k->sym) {
-	case SDLK_UP:
-		if (!NO_MODIFIER(k->mod))
-			return 0;
-		new_format--;
-		break;
-	case SDLK_DOWN:
-		if (!NO_MODIFIER(k->mod))
-			return 0;
-		new_format++;
-		break;
-	case SDLK_PAGEUP:
-	case SDLK_HOME:
-		if (!NO_MODIFIER(k->mod))
-			return 0;
-		new_format = 0;
-		break;
-	case SDLK_PAGEDOWN:
-	case SDLK_END:
-		if (!NO_MODIFIER(k->mod))
-			return 0;
-		new_format = num_save_formats - 1;
-		break;
-	case SDLK_TAB:
-		if (k->mod & KMOD_SHIFT) {
-			change_focus_to(0);
-			return 1;
-		}
-		/* fall through */
-	case SDLK_LEFT:
-	case SDLK_RIGHT:
-		if (!NO_MODIFIER(k->mod))
-			return 0;
-		change_focus_to(0); /* should focus 0/1/2 depending on what's closest */
-		return 1;
-	default:
-		return 0;
-	}
-
-	new_format = CLAMP(new_format, 0, num_save_formats - 1);
-	if (new_format != export_sample_format) {
-		/* update the option string */
-		export_sample_format = new_format;
-		status.flags |= NEED_UPDATE;
-	}
-
-	return 1;
-}
-
-static void export_sample_draw_const(void)
-{
-	draw_text("Export Sample", 34, 21, 0, 2);
-
-	draw_text("Filename", 24, 24, 0, 2);
-	draw_box(32, 23, 51, 25, BOX_THICK | BOX_INNER | BOX_INSET);
-
-	draw_box(52, 23, 57, 32, BOX_THICK | BOX_INNER | BOX_INSET);
-}
-
-static void export_sample_dialog(void)
-{
-	song_sample_t *sample = song_get_sample(current_sample);
-	struct dialog *dialog;
-
-	create_textentry(export_sample_widgets + 0, 33, 24, 18, 0, 1, 3, NULL,
-			 export_sample_filename, NAME_MAX);
-	create_button(export_sample_widgets + 1, 31, 35, 6, 0, 1, 2, 2, 2, dialog_yes_NULL, "OK", 3);
-	create_button(export_sample_widgets + 2, 42, 35, 6, 3, 2, 1, 1, 1, dialog_cancel_NULL, "Cancel", 1);
-	create_other(export_sample_widgets + 3, 0, export_sample_list_handle_key, export_sample_list_draw);
-
-	strncpy(export_sample_filename, sample->filename, NAME_MAX);
-	export_sample_filename[NAME_MAX] = 0;
-
-	dialog = dialog_create_custom(21, 20, 39, 18, export_sample_widgets, 4, 0,
-				      export_sample_draw_const, NULL);
-	dialog->action_yes = do_export_sample;
-}
-
-
-/* resize sample dialog */
-static struct widget resize_sample_widgets[2];
-static int resize_sample_cursor;
-
-static void do_resize_sample_aa(UNUSED void *data)
-{
-	song_sample_t *sample = song_get_sample(current_sample);
-	unsigned int newlen = resize_sample_widgets[0].d.numentry.value;
-	sample_resize(sample, newlen, 1);
-}
-
-static void do_resize_sample(UNUSED void *data)
-{
-	song_sample_t *sample = song_get_sample(current_sample);
-	unsigned int newlen = resize_sample_widgets[0].d.numentry.value;
-	sample_resize(sample, newlen, 0);
-}
-
-static void resize_sample_draw_const(void)
-{
-	draw_text("Resize Sample", 34, 24, 3, 2);
-	draw_text("New Length", 31, 27, 0, 2);
-	draw_box(41, 26, 49, 28, BOX_THICK | BOX_INNER | BOX_INSET);
-}
-
-static void resize_sample_dialog(int aa)
-{
-	song_sample_t *sample = song_get_sample(current_sample);
-	struct dialog *dialog;
-
-	resize_sample_cursor = 0;
-	create_numentry(resize_sample_widgets + 0, 42, 27, 7, 0, 1, 1, NULL, 0, 9999999, &resize_sample_cursor);
-	resize_sample_widgets[0].d.numentry.value = sample->length;
-	create_button(resize_sample_widgets + 1, 36, 30, 6, 0, 1, 1, 1, 1,
-		dialog_cancel_NULL, "Cancel", 1);
-	dialog = dialog_create_custom(26, 22, 29, 11, resize_sample_widgets, 2, 0,
-		resize_sample_draw_const, NULL);
-	dialog->action_yes = aa ? do_resize_sample_aa : do_resize_sample;
-}
-
-/* --------------------------------------------------------------------- */
-
-static void sample_set_mute(int n, int mute)
-{
-	song_sample_t *smp = song_get_sample(n);
-
-	if (mute) {
-		if (smp->flags & CHN_MUTE)
-			return;
-		smp->globalvol_saved = smp->global_volume;
-		smp->global_volume = 0;
-		smp->flags |= CHN_MUTE;
-	} else {
-		if (!(smp->flags & CHN_MUTE))
-			return;
-		smp->global_volume = smp->globalvol_saved;
-		smp->flags &= ~CHN_MUTE;
-	}
-}
-
-static void sample_toggle_mute(int n)
-{
-	song_sample_t *smp = song_get_sample(n);
-	sample_set_mute(n, !(smp->flags & CHN_MUTE));
-}
-
-static void sample_toggle_solo(int n)
-{
-	int i, solo = 0;
-
-	if (song_get_sample(n)->flags & CHN_MUTE) {
-		solo = 1;
-	} else {
-		for (i = 1; i < MAX_SAMPLES; i++) {
-			if (i != n && !(song_get_sample(i)->flags & CHN_MUTE)) {
-				solo = 1;
-				break;
-			}
-		}
-	}
-	for (i = 1; i < MAX_SAMPLES; i++)
-		sample_set_mute(i, solo && i != n);
-}
-
-/* --------------------------------------------------------------------- */
-
-static void sample_list_handle_alt_key(struct key_event * k)
-{
-	song_sample_t *sample = song_get_sample(current_sample);
-	int canmod = (sample->data != NULL && !(sample->flags & CHN_ADLIB));
-
-	if (k->state == KEY_RELEASE)
-		return;
-	switch (k->sym) {
-	case SDLK_a:
-		if (canmod)
-			dialog_create(DIALOG_OK_CANCEL, "Convert sample?", do_sign_convert, NULL, 0, NULL);
-		return;
-	case SDLK_b:
-		if (canmod && (sample->loop_start > 0
-			       || ((sample->flags & CHN_SUSTAINLOOP) && sample->sustain_start > 0))) {
-			dialog_create(DIALOG_OK_CANCEL, "Cut sample?", do_pre_loop_cut, NULL, 1, NULL);
-		}
-		return;
-	case SDLK_d:
-		if ((k->mod & KMOD_SHIFT) && !(status.flags & CLASSIC_MODE)) {
-			if (canmod && sample->flags & CHN_STEREO) {
-				dialog_create(DIALOG_OK_CANCEL, "Downmix sample to mono?",
-					do_downmix, NULL, 0, NULL);
-			}
-		} else {
-			dialog_create(DIALOG_OK_CANCEL, "Delete sample?", do_delete_sample,
-				NULL, 1, NULL);
-		}
-		return;
-	case SDLK_e:
-		if (canmod)
-			resize_sample_dialog(1);
-		break;
-	case SDLK_f:
-		if (canmod)
-			resize_sample_dialog(0);
-		break;
-	case SDLK_g:
-		if (canmod)
-			sample_reverse(sample);
-		break;
-	case SDLK_h:
-		if (canmod)
-			dialog_create(DIALOG_YES_NO, "Centralise sample?", do_centralise, NULL, 0, NULL);
-		return;
-	case SDLK_i:
-		if (canmod)
-			sample_invert(sample);
-		break;
-	case SDLK_l:
-		if (canmod && (sample->loop_end > 0
-			       || ((sample->flags & CHN_SUSTAINLOOP) && sample->sustain_end > 0))) {
-			dialog_create(DIALOG_OK_CANCEL, "Cut sample?", do_post_loop_cut, NULL, 1, NULL);
-		}
-		return;
-	case SDLK_m:
-		if (canmod)
-			sample_amplify_dialog();
-		return;
-	case SDLK_n:
-		song_toggle_multichannel_mode();
-		return;
-	case SDLK_o:
-		sample_save(NULL, "ITS");
-		return;
-	case SDLK_p:
-		smpprompt_create("Copy sample:", "Sample", do_copy_sample);
-		return;
-	case SDLK_q:
-		if (canmod) {
-			dialog_create(DIALOG_YES_NO, "Convert sample?",
-			      do_quality_convert, do_quality_toggle, 0, NULL);
-		}
-		return;
-	case SDLK_r:
-		smpprompt_create("Replace sample with:", "Sample", do_replace_sample);
-		return;
-	case SDLK_s:
-		smpprompt_create("Swap sample with:", "Sample", do_swap_sample);
-		return;
-	case SDLK_t:
-		export_sample_dialog();
-		return;
-	case SDLK_w:
-		sample_save(NULL, "RAW");
-		return;
-	case SDLK_x:
-		smpprompt_create("Exchange sample with:", "Sample", do_exchange_sample);
-		return;
-	case SDLK_y:
-		/* hi virt */
-		txtsynth_dialog();
-		return;
-	case SDLK_z:
-		{ // uguu~
-			void (*dlg)(void *) = (k->mod & KMOD_SHIFT)
-				? sample_adlibpatch_dialog
-				: sample_adlibconfig_dialog;
-			if (canmod) {
-				dialog_create(DIALOG_OK_CANCEL, "This will replace the current sample.",
-					      dlg, NULL, 1, NULL);
-			} else {
-				dlg(NULL);
-			}
-		}
-		return;
-	case SDLK_INSERT:
-		song_insert_sample_slot(current_sample);
-		break;
-	case SDLK_DELETE:
-		song_remove_sample_slot(current_sample);
-		break;
-	case SDLK_F9:
-		sample_toggle_mute(current_sample);
-		break;
-	case SDLK_F10:
-		sample_toggle_solo(current_sample);
-		break;
-	default:
-		return;
-	}
-
-	status.flags |= NEED_UPDATE;
-}
 
 static void sample_list_handle_key(struct key_event * k)
 {
@@ -1477,7 +1066,7 @@ static void sample_list_handle_key(struct key_event * k)
 		if (k->mod & KMOD_ALT) {
 			if (k->state == KEY_RELEASE)
 				return;
-			sample_list_handle_alt_key(k);
+//			sample_list_handle_alt_key(k);
 		} else if (!k->is_repeat) {
 			int n, v;
 			if (k->midi_note > -1) {

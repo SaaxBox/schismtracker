@@ -687,8 +687,8 @@ static void handle_key_fontlist(struct key_event * k)
 		case MODE_SAVE:
 			if (cur_font < flist.num_files && flist.files[cur_font]) {
 				if (strcasecmp(flist.files[cur_font]->base,"font.cfg") != 0) {
-					dialog_create(DIALOG_OK_CANCEL, "Overwrite font file?",
-						confirm_font_save_ok, NULL, 1, flist.files[cur_font]->base);
+//					dialog_create(DIALOG_OK_CANCEL, "Overwrite font file?",
+//						confirm_font_save_ok, NULL, 1, flist.files[cur_font]->base);
 					return;
 				}
 				confirm_font_save_ok(flist.files[cur_font]->base);

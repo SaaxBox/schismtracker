@@ -26,7 +26,6 @@
 
 #include "it.h"
 #include "song.h"
-#include "page.h"
 #include "util.h"
 #include "song.h"
 #include "sndfile.h"
@@ -574,79 +573,11 @@ static song_t export_dwsong;
 static int export_bps;
 static disko_t *export_ds[MAX_CHANNELS + 1]; /* only [0] is used unless multichannel */
 static const struct save_format *export_format = NULL; /* NULL == not running */
-static struct widget diskodlg_widgets[1];
-static size_t est_len;
-static int prgh;
 static struct timeval export_start_time;
 static int canceled = 0; /* this sucks, but so do I */
 
 static int disko_finish(void);
 
-static void diskodlg_draw(void)
-{
-	int sec, pos;
-	char buf[32];
-
-	if (!export_ds[0]) {
-		/* what are we doing here?! */
-		dialog_destroy_all();
-		log_appendf(4, "disk export dialog was eaten by a grue!");
-		return;
-	}
-
-	sec = export_ds[0]->length / export_dwsong.mix_frequency;
-	pos = export_ds[0]->length * 64 / est_len;
-	snprintf(buf, 32, "Exporting song...%6d:%02d", sec / 60, sec % 60);
-	buf[31] = '\0';
-	draw_text(buf, 27, 27, 0, 2);
-	draw_fill_chars(24, 30, 55, 30, 0);
-	draw_vu_meter(24, 30, 32, pos, prgh, prgh);
-	draw_box(23, 29, 56, 31, BOX_THIN | BOX_INNER | BOX_INSET);
-}
-
-static void diskodlg_cancel(UNUSED void *ignored)
-{
-	canceled = 1;
-	export_dwsong.flags |= SONG_ENDREACHED;
-	if (!export_ds[0]) {
-		log_appendf(4, "export was already dead on the inside");
-		return;
-	}
-	for (int n = 0; export_ds[n]; n++)
-		disko_seterror(export_ds[n], EINTR);
-
-	/* The next disko_sync will notice the (artifical) error status and call disko_finish,
-	which will clean up all the files.
-	'canceled' prevents disko_finish from making a second call to dialog_destroy (since
-	this function is already being called in response to the dialog being canceled) and
-	also affects the message it prints at the end. */
-}
-
-static void disko_dialog_setup(size_t len);
-
-// this needs to be done to work around stupid inconsistent key-up code
-static void diskodlg_reset(UNUSED void *ignored)
-{
-	disko_dialog_setup(est_len);
-}
-
-static void disko_dialog_setup(size_t len)
-{
-	struct dialog *d = dialog_create_custom(22, 25, 36, 8, diskodlg_widgets, 0, 0, diskodlg_draw, NULL);
-	d->action_yes = diskodlg_reset;
-	d->action_no = diskodlg_reset;
-	d->action_cancel = diskodlg_cancel;
-
-	canceled = 0; /* stupid */
-
-	est_len = len;
-	switch ((rand() >> 8) & 63) { /* :) */
-		case  0 ...  7: prgh = 6; break;
-		case  8 ... 18: prgh = 3; break;
-		case 19 ... 31: prgh = 5; break;
-		default: prgh = 4; break;
-	}
-}
 
 // ---------------------------------------------------------------------------
 
@@ -736,7 +667,7 @@ int disko_export_song(const char *filename, const struct save_format *format)
 	export_format = format;
 	status.flags |= DISKWRITER_ACTIVE; /* tell main to care about us */
 
-	disko_dialog_setup((csf_get_length(&export_dwsong) * export_dwsong.mix_frequency) ?: 1);
+//	disko_dialog_setup((csf_get_length(&export_dwsong) * export_dwsong.mix_frequency) ?: 1);
 
 	return DW_OK;
 }
@@ -791,8 +722,9 @@ static int disko_finish(void)
 		return DW_ERROR; /* no writer running (why are we here?) */
 	}
 
-	if (!canceled)
-		dialog_destroy();
+	if (!canceled) {
+//		dialog_destroy();
+	}
 
 	samples_0 = export_ds[0]->length;
 	for (n = 0; export_ds[n]; n++) {
@@ -858,7 +790,7 @@ static void pat2smp_single(void *data)
 	struct pat2smp *ps = data;
 
 	if (disko_writeout_sample(ps->sample, ps->pattern, ps->bind) == DW_OK) {
-		set_page(PAGE_SAMPLE_LIST);
+//		set_page(PAGE_SAMPLE_LIST);
 	} else {
 		log_perror("Sample write");
 		status_text_flash("Error writing to sample");
@@ -871,7 +803,7 @@ static void pat2smp_multi(void *data)
 {
 	struct pat2smp *ps = data;
 	if (disko_multiwrite_samples(ps->sample, ps->pattern) == DW_OK) {
-		set_page(PAGE_SAMPLE_LIST);
+//		set_page(PAGE_SAMPLE_LIST);
 	} else {
 		log_perror("Sample multi-write");
 		status_text_flash("Error writing to samples");
@@ -916,8 +848,8 @@ void song_pattern_to_sample(int pattern, int split, int bind)
 		if (current_song->samples[ps->sample].data == NULL) {
 			pat2smp_single(ps);
 		} else {
-			dialog_create(DIALOG_OK_CANCEL, "This will replace the current sample.",
-				pat2smp_single, free, 1, ps);
+//			dialog_create(DIALOG_OK_CANCEL, "This will replace the current sample.",
+//				pat2smp_single, free, 1, ps);
 		}
 	}
 }
